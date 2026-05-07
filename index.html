@@ -381,9 +381,7 @@ tr:hover td { background: #f8fafc; }
         <input type="text" id="new-prod-name" placeholder="Add new item..." style="flex:1;max-width:260px">
         <select id="new-prod-cat" style="width:140px"></select>
         <select id="new-prod-unit" style="width:80px">
-          <option value="kg">kg</option><option value="g">g</option><option value="L">L</option>
-          <option value="mL">mL</option><option value="pcs">pcs</option><option value="servings">servings</option>
-          <option value="bags">bags</option><option value="bottles">bottles</option>
+          <option value="g">g</option><option value="pcs">pcs</option>
         </select>
         <button class="btn btn-primary" onclick="addProduct()">Add</button>
       </div>
@@ -430,14 +428,14 @@ const DEFAULT_PRODUCTS = [
   { n: "Chia seeds", c: "Raw Material" },
   { n: "Whipping cream premix", c: "Premixes" }, { n: "Tiramisu cold foam", c: "Premixes" },
   { n: "Condensed milk", c: "Premixes" },
-  { n: "Chocolate cookie", c: "Bakery" }, { n: "SEC", c: "Bakery" },
-  { n: "Almond croissant", c: "Bakery" }, { n: "Chocolate croissant", c: "Bakery" },
-  { n: "Chocolate muffin", c: "Bakery" },
+  { n: "Chocolate cookie", c: "Pastries" }, { n: "SEC", c: "Pastries" },
+  { n: "Almond croissant", c: "Pastries" }, { n: "Chocolate croissant", c: "Pastries" },
+  { n: "Chocolate muffin", c: "Pastries" },
   { n: "Matcha", c: "Other" }, { n: "Chocolate", c: "Other" }, { n: "Chocolate chips", c: "Other" },
   { n: "Caramel sauce", c: "Other" }
 ];
 
-const CATEGORIES = ['Milks', 'Raw Material', 'Purees & Juices', 'Premixes', 'Bakery', 'Other'];
+const CATEGORIES = ['Pastries', 'Milks', 'Raw Material', 'Purees & Juices', 'Other', 'Premixes'];
 
 // ---- Firebase config ----
 // 1. Go to https://console.firebase.google.com
@@ -812,7 +810,7 @@ function renderProducts() {
     </td>
     <td>
       <select onchange="changeUnit(${p.id}, this.value)" style="padding:4px 6px;font-size:12px;width:80px">
-        ${optionList(['kg','g','L','mL','pcs','servings','bags','bottles'], p.unit)}
+        ${optionList(['g','pcs'], p.unit)}
       </select>
     </td>
     <td>
@@ -822,10 +820,11 @@ function renderProducts() {
 }
 
 function categories() {
-  const set = new Set();
-  data.products.forEach(p => { if (p.category) set.add(p.category); });
-  CATEGORIES.forEach(c => set.add(c));
-  return [...set].sort();
+  const used = new Set();
+  data.products.forEach(p => { if (p.category) used.add(p.category); });
+  const ordered = CATEGORIES.filter(c => used.has(c));
+  const extra = [...used].filter(c => !CATEGORIES.includes(c));
+  return [...ordered, ...extra];
 }
 
 function onDragStart(e) {
