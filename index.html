@@ -428,14 +428,14 @@ const DEFAULT_PRODUCTS = [
   { n: "Chia seeds", c: "Raw Material" },
   { n: "Whipping cream premix", c: "Premixes" }, { n: "Tiramisu cold foam", c: "Premixes" },
   { n: "Condensed milk", c: "Premixes" },
-  { n: "Chocolate cookie", c: "Pastries" }, { n: "SEC", c: "Pastries" },
-  { n: "Almond croissant", c: "Pastries" }, { n: "Chocolate croissant", c: "Pastries" },
-  { n: "Chocolate muffin", c: "Pastries" },
+  { n: "Chocolate cookie", c: "Pastry" }, { n: "SEC", c: "Pastry" },
+  { n: "Almond croissant", c: "Pastry" }, { n: "Chocolate croissant", c: "Pastry" },
+  { n: "Chocolate muffin", c: "Pastry" },
   { n: "Matcha", c: "Other" }, { n: "Chocolate", c: "Other" }, { n: "Chocolate chips", c: "Other" },
   { n: "Caramel sauce", c: "Other" }
 ];
 
-const CATEGORIES = ['Pastries', 'Milks', 'Raw Material', 'Purees & Juices', 'Other', 'Premixes'];
+const CATEGORIES = ['Pastry', 'Milks', 'Raw Material', 'Purees & Juices', 'Other', 'Premixes'];
 
 // ---- Firebase config ----
 // 1. Go to https://console.firebase.google.com
@@ -480,7 +480,7 @@ DOC_REF.onSnapshot((doc) => {
     if (!data.nextProductId) data.nextProductId = (data.products || []).length + 1;
     if (!data.dailyLogs) data.dailyLogs = {};
     // Migrate old category names
-    if (data.products) data.products.forEach(p => { if (p.category === 'Bakery') p.category = 'Pastries'; });
+    if (data.products) data.products.forEach(p => { if (p.category === 'Bakery' || p.category === 'Pastries') p.category = 'Pastry'; });
   } else {
     data = defaultData();
     DOC_REF.set(data);
