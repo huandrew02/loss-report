@@ -19,6 +19,14 @@ const DEFAULT_PRODUCTS = [
 
 const CATEGORIES = ['Pastry', 'Milks', 'Raw Material', 'Purees & Juices', 'Other', 'Premixes'];
 
+function defaultData() {
+  return {
+    products: DEFAULT_PRODUCTS.map((p, i) => ({ id: i + 1, name: p.n, category: p.c, unit: 'g', createdAt: Date.now() })),
+    dailyLogs: {},
+    nextProductId: DEFAULT_PRODUCTS.length + 1,
+  };
+}
+
 // ---- Firebase ----
 firebase.initializeApp(FIREBASE_CONFIG);
 const DB = firebase.firestore();
