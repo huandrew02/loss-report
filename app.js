@@ -310,12 +310,20 @@ function renderDayView() {
   const targetDate = input.value;
   const log = data.dailyLogs[targetDate] || {};
   const entries = Object.keys(log).length;
-  let totalQty = 0;
-  for (const pid of Object.keys(log)) totalQty += log[pid];
+
+  // Compute average per product across all dates
+  const avgMap = {};
+  const countMap = {};
+  for (const date in data.dailyLogs) {
+    for (const pid in data.dailyLogs[date]) {
+      avgMap[pid] = (avgMap[pid] || 0) + data.dailyLogs[date][pid];
+      countMap[pid] = (countMap[pid] || 0) + 1;
+    }
+  }
+  for (const pid in avgMap) avgMap[pid] /= countMap[pid];
+
   document.getElementById('hist-stats').innerHTML = `
     <div class="stat"><div class="stat-label">Date</div><div class="stat-value">${targetDate}</div></div>
-    <div class="stat"><div class="stat-label">Items Lost</div><div class="stat-value">${entries}</div></div>
-    <div class="stat"><div class="stat-label">Total Qty</div><div class="stat-value">${totalQty}</div></div>
   `;
   const tbody = document.getElementById('hist-tbody');
   const empty = document.getElementById('hist-empty');
@@ -332,8 +340,16 @@ function renderDayView() {
   let idx = 0;
   categories().forEach(cat => {
     if (!groups[cat]) return;
-    html += `<tr style="background:#f8fafc"><td colspan="4" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
-    groups[cat].forEach(p => { idx++; html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td>${log[p.id]}</td><td>${p.unit}</td></tr>`; });
+    html += `<tr style="background:#f8fafc"><td colspan="5" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
+    groups[cat].forEach(p => {
+      idx++;
+      const qty = log[p.id];
+      const avg = avgMap[p.id];
+      let badge = '';
+      if (avg && qty > avg * 2) badge = '<span class="badge badge-danger" style="background:#fef2f2;color:var(--danger)">High</span>';
+      else if (avg && qty > avg * 1.5) badge = '<span class="badge" style="background:#fffbeb;color:#d97706">Elevated</span>';
+      html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td>${qty}</td><td>${p.unit}</td><td>${badge}</td></tr>`;
+    });
   });
   tbody.innerHTML = html;
 }
