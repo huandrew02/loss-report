@@ -70,7 +70,7 @@ const FIREBASE_CONFIG = {
       <div class="card" style="padding:0">
         <div class="table-wrap">
           <table>
-            <thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:120px">Loss Qty</th><th style="width:60px">Unit</th></tr></thead>
+            <thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:90px">Loss Qty</th><th style="width:110px">Reason</th><th style="width:60px">Unit</th></tr></thead>
             <tbody id="log-tbody"></tbody>
           </table>
         </div>
@@ -98,7 +98,7 @@ const FIREBASE_CONFIG = {
         <div class="stats" id="hist-stats"></div>
         <div class="card" style="padding:0">
           <div class="table-wrap">
-            <table><thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:90px">Loss Qty</th><th style="width:60px">Unit</th><th style="width:80px">Status</th></tr></thead><tbody id="hist-tbody"></tbody></table>
+            <table><thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:70px">Qty</th><th style="width:100px">Reason</th><th style="width:50px">Unit</th><th style="width:70px">Status</th></tr></thead><tbody id="hist-tbody"></tbody></table>
           </div>
           <div class="empty" id="hist-empty"><p>No losses recorded for this date</p></div>
         </div>
@@ -108,8 +108,11 @@ const FIREBASE_CONFIG = {
           <button onclick="weekPrev()">&larr; Prev Week</button>
           <span id="hist-week-label" style="font-weight:600;min-width:190px;text-align:center"></span>
           <button onclick="weekNext()">Next Week &rarr;</button>
-        </div>
-        <div class="card" style="padding:0">
+      </div>
+      <div id="monthly-recap" style="display:none">
+        <div class="stats" id="recap-stats"></div>
+      </div>
+      <div class="card" style="padding:0">
           <div class="table-wrap">
             <table class="week-table">
               <thead id="week-thead"></thead>

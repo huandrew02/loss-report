@@ -83,6 +83,13 @@ function attachStoreListener() {
       data = doc.data();
       if (!data.nextProductId) data.nextProductId = (data.products || []).length + 1;
       if (!data.dailyLogs) data.dailyLogs = {};
+      // Migrate dailyLogs to object format with reason
+      for (const date in data.dailyLogs) {
+        for (const pid in data.dailyLogs[date]) {
+          const val = data.dailyLogs[date][pid];
+          if (typeof val === 'number') data.dailyLogs[date][pid] = { q: val, r: '' };
+        }
+      }
       if (data.products) data.products.forEach(p => {
         if (p.category === 'Bakery' || p.category === 'Pastries') p.category = 'Pastry';
       });
@@ -222,21 +229,73 @@ function renderDailyLog(clearInputs) {
     if (!groups[cat]) groups[cat] = [];
     groups[cat].push(p);
   });
+  const reasons = ['Spoilage','Overproduction','Expired','Damaged','Prep waste','Other'];
   let html = '';
   let idx = 0;
   categories().forEach(cat => {
     if (!groups[cat] || groups[cat].length === 0) return;
-    html += `<tr style="background:#f8fafc"><td colspan="4" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
+    html += `<tr style="background:#f8fafc"><td colspan="5" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
     groups[cat].forEach(p => {
       idx++;
-      const qty = clearInputs ? '' : (saved[p.id] || '');
-      html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td><div class="qty-cell"><input type="number" step="0.1" min="0" id="log-qty-${p.id}" value="${qty}" placeholder="0" oninput="onLogQtyChange(${p.id})"></div></td><td>${p.unit}</td></tr>`;
+      const entry = saved[p.id] || {};
+      const qty = clearInputs ? '' : (entry.q || '');
+      const reason = clearInputs ? '' : (entry.r || '');
+      html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td>
+        <td><div class="qty-cell"><input type="number" step="0.1" min="0" id="log-qty-${p.id}" value="${qty}" placeholder="0" oninput="onLogQtyChange(${p.id})"></div></td>
+        <td><select id="log-reason-${p.id}" style="padding:4px 6px;font-size:12px;width:110px"><option value="">--</option>${reasons.map(r => `<option value="${r}"${reason === r ? ' selected' : ''}>${r}</option>`).join('')}</select></td>
+        <td>${p.unit}</td></tr>`;
     });
   });
   tbody.innerHTML = html;
   updateLogTotal();
   const hasSaved = !!data.dailyLogs[date] && Object.keys(data.dailyLogs[date]).length > 0;
   document.getElementById('log-save-status').textContent = hasSaved ? 'Saved' : '';
+  renderMonthlyRecap();
+}
+
+function renderMonthlyRecap() {
+  if (!data) return;
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
+
+  let thisQty = 0, thisCount = 0, prevQty = 0, prevCount = 0;
+  for (const date in data.dailyLogs) {
+    const prefix = date.substring(0, 7);
+    for (const pid in data.dailyLogs[date]) {
+      const entry = data.dailyLogs[date][pid];
+      const qty = typeof entry === 'number' ? entry : (entry.q || 0);
+      if (prefix === thisMonth) { thisQty += qty; thisCount++; }
+      else if (prefix === prevMonth) { prevQty += qty; prevCount++; }
+    }
+  }
+
+  const el = document.getElementById('monthly-recap');
+  if (thisCount === 0 && prevCount === 0) { el.style.display = 'none'; return; }
+  el.style.display = '';
+
+  function trend(cur, prev) {
+    if (prev === 0) return '';
+    const diff = ((cur - prev) / prev * 100).toFixed(0);
+    const color = diff > 0 ? 'var(--danger)' : 'var(--success)';
+    const arrow = diff > 0 ? '&#8593;' : '&#8595;';
+    return ` <span style="color:${color};font-size:12px">${arrow} ${Math.abs(diff)}%</span>`;
+  }
+
+  const monthLabel = now.toLocaleString('en', { month: 'long', year: 'numeric' });
+  const prevLabel = prevDate.toLocaleString('en', { month: 'long', year: 'numeric' });
+
+  document.getElementById('recap-stats').innerHTML = `
+    <div class="stat"><div class="stat-label">${monthLabel} Entries</div><div class="stat-value">${thisCount}${trend(thisCount, prevCount)}</div></div>
+    <div class="stat"><div class="stat-label">${monthLabel} Qty Lost</div><div class="stat-value">${fmtQty(thisQty)}${trend(thisQty, prevQty)}</div></div>
+    <div class="stat"><div class="stat-label">${prevLabel} Entries</div><div class="stat-value">${prevCount}</div></div>
+    <div class="stat"><div class="stat-label">${prevLabel} Qty Lost</div><div class="stat-value">${fmtQty(prevQty)}</div></div>
+  `;
+}
+
+function fmtQty(v) {
+  return v % 1 === 0 ? v.toString() : v.toFixed(1);
 }
 
 function onLogQtyChange(productId) {
@@ -267,8 +326,11 @@ function saveDailyLog() {
   if (!date) { toast('Please select a date'); return; }
   const log = {};
   for (const p of data.products) {
-    const v = parseFloat(document.getElementById(`log-qty-${p.id}`)?.value);
-    if (v > 0) log[p.id] = v;
+    const q = parseFloat(document.getElementById(`log-qty-${p.id}`)?.value);
+    if (q > 0) {
+      const r = document.getElementById(`log-reason-${p.id}`)?.value || '';
+      log[p.id] = { q, r };
+    }
   }
   if (Object.keys(log).length === 0) { toast('No losses to save. Enter at least one quantity.'); return; }
   data.dailyLogs[date] = log;
@@ -316,7 +378,9 @@ function renderDayView() {
   const countMap = {};
   for (const date in data.dailyLogs) {
     for (const pid in data.dailyLogs[date]) {
-      avgMap[pid] = (avgMap[pid] || 0) + data.dailyLogs[date][pid];
+      const entry = data.dailyLogs[date][pid];
+      const qty = typeof entry === 'number' ? entry : (entry.q || 0);
+      avgMap[pid] = (avgMap[pid] || 0) + qty;
       countMap[pid] = (countMap[pid] || 0) + 1;
     }
   }
@@ -340,15 +404,17 @@ function renderDayView() {
   let idx = 0;
   categories().forEach(cat => {
     if (!groups[cat]) return;
-    html += `<tr style="background:#f8fafc"><td colspan="5" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
+    html += `<tr style="background:#f8fafc"><td colspan="6" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
     groups[cat].forEach(p => {
       idx++;
-      const qty = log[p.id];
+      const entry = log[p.id] || {};
+      const qty = typeof entry === 'number' ? entry : (entry.q || 0);
+      const reason = typeof entry === 'object' && entry.r ? entry.r : '';
       const avg = avgMap[p.id];
       let badge = '';
       if (avg && qty > avg * 2) badge = '<span class="badge badge-danger" style="background:#fef2f2;color:var(--danger)">High</span>';
       else if (avg && qty > avg * 1.5) badge = '<span class="badge" style="background:#fffbeb;color:#d97706">Elevated</span>';
-      html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td>${qty}</td><td>${p.unit}</td><td>${badge}</td></tr>`;
+      html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td>${qty}</td><td>${reason ? `<span class="badge badge-primary">${reason}</span>` : ''}</td><td>${p.unit}</td><td>${badge}</td></tr>`;
     });
   });
   tbody.innerHTML = html;
