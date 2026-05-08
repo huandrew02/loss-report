@@ -288,23 +288,14 @@ function saveDailyLog() {
 }
 
 // ---- History ----
-let histView = 'day';
-
-document.querySelectorAll('#hist-view-toggle button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#hist-view-toggle button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    histView = btn.dataset.view;
-    document.getElementById('hist-day-view').style.display = histView === 'day' ? '' : 'none';
-    document.getElementById('hist-week-view').style.display = histView === 'week' ? '' : 'none';
-    renderHistory();
-  });
-});
+let histView = 'week';
 
 function histSortedDates() { return Object.keys(data.dailyLogs).sort(); }
 
 function renderHistory() {
   if (!data) return;
+  document.getElementById('hist-day-view').style.display = histView === 'day' ? '' : 'none';
+  document.getElementById('hist-week-view').style.display = histView === 'week' ? '' : 'none';
   if (histView === 'day') renderDayView();
   else renderWeekView();
 }
