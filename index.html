@@ -4,269 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Daily Loss Tracker</title>
-<style>
-:root {
-  --bg: #f5f7fa;
-  --surface: #ffffff;
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --danger: #ef4444;
-  --success: #22c55e;
-  --text: #1e293b;
-  --text-secondary: #64748b;
-  --border: #e2e8f0;
-  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
-  --radius: 12px;
-}
-
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-}
-.app { display: flex; min-height: 100vh; }
-
-/* Sidebar */
-.sidebar {
-  width: 220px;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  padding: 24px 0;
-  flex-shrink: 0;
-}
-.logo {
-  padding: 0 20px 24px;
-  font-size: 20px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--primary);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
-}
-.logo svg { width: 22px; height: 22px; }
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 20px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  font-size: 14px;
-  font-weight: 500;
-  transition: all .15s;
-  border: none;
-  background: none;
-  width: 100%;
-  text-align: left;
-}
-.nav-item:hover { background: #f1f5f9; color: var(--text); }
-.nav-item.active { background: #eef2ff; color: var(--primary); font-weight: 600; }
-.nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
-
-/* Main */
-.main { flex: 1; padding: 28px 36px; max-width: 1100px; }
-.page { display: none; }
-.page.active { display: block; }
-
-h1 { font-size: 22px; margin-bottom: 4px; }
-.subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 20px; }
-
-/* Cards */
-.card {
-  background: var(--surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 20px 24px;
-  margin-bottom: 16px;
-}
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.card-header h2 { font-size: 15px; font-weight: 600; }
-
-/* View toggle */
-.view-toggle {
-  display: inline-flex; gap: 3px; background: var(--bg);
-  border-radius: 8px; padding: 3px; margin-bottom: 12px;
-}
-.view-toggle button {
-  padding: 5px 14px; border: none; border-radius: 6px;
-  background: transparent; font-size: 12px; font-weight: 500;
-  cursor: pointer; color: var(--text-secondary); transition: all .15s;
-}
-.view-toggle button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
-
-/* Drag handle */
-.drag-handle { cursor: grab; user-select: none; -webkit-user-select: none; }
-.drag-handle:active { cursor: grabbing; }
-tr.dragging { opacity: 0.4; }
-tr.drag-over-above { border-top: 2px solid var(--primary) !important; }
-tr.drag-over-below { border-bottom: 2px solid var(--primary) !important; }
-#prod-tbody tr { user-select: none; -webkit-user-select: none; }
-
-/* Week table */
-.week-table td:first-child { font-weight: 600; white-space: nowrap; }
-.week-table th { text-align: center; }
-.week-table td { text-align: center; min-width: 48px; }
-.week-table .col-total { background: #f8fafc; font-weight: 600; }
-
-/* Stats */
-.stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
-  margin-bottom: 20px;
-}
-.stat {
-  background: var(--surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 16px 18px;
-}
-.stat-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 2px; }
-.stat-value { font-size: 24px; font-weight: 700; }
-.stat-value.danger { color: var(--danger); }
-.stat-value.success { color: var(--success); }
-
-/* Forms */
-.form-group { margin-bottom: 10px; }
-.form-group label {
-  display: block;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin-bottom: 3px;
-}
-input, select, textarea {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 14px;
-  background: var(--bg);
-  color: var(--text);
-  transition: border .15s;
-}
-input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
-input[type="number"] { width: 90px; }
-textarea { resize: vertical; min-height: 50px; }
-
-/* Buttons */
-.btn {
-  padding: 8px 18px;
-  border-radius: 8px;
-  border: none;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .15s;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.btn-primary { background: var(--primary); color: #fff; }
-.btn-primary:hover { background: var(--primary-hover); }
-.btn-danger { background: var(--danger); color: #fff; }
-.btn-danger:hover { background: #dc2626; }
-.btn-ghost { background: transparent; color: var(--text-secondary); }
-.btn-ghost:hover { background: #f1f5f9; }
-.btn-sm { padding: 5px 10px; font-size: 11px; }
-.btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
-
-/* Tables */
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th {
-  text-align: left; padding: 8px 10px; font-weight: 600;
-  color: var(--text-secondary); font-size: 11px; text-transform: uppercase;
-  letter-spacing: .04em; border-bottom: 2px solid var(--border);
-  white-space: nowrap;
-}
-td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-tr:hover td { background: #f8fafc; }
-
-/* Daily log table specific */
-.qty-cell { display: flex; align-items: center; gap: 6px; }
-.qty-saved { color: var(--success); font-size: 12px; font-weight: 600; }
-
-/* Badge */
-.badge {
-  display: inline-block; padding: 2px 8px; border-radius: 20px;
-  font-size: 11px; font-weight: 500;
-}
-.badge-primary { background: #eef2ff; color: var(--primary); }
-.badge-success { background: #f0fdf4; color: #16a34a; }
-
-/* Empty */
-.empty { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
-.empty p { font-size: 13px; }
-
-/* Toast */
-.toast {
-  position: fixed; bottom: 24px; right: 24px; z-index: 200;
-  background: var(--text); color: #fff; padding: 10px 20px;
-  border-radius: 10px; font-size: 13px; font-weight: 500;
-  opacity: 0; transform: translateY(10px); transition: all .25s;
-  pointer-events: none;
-}
-.toast.show { opacity: 1; transform: translateY(0); }
-
-/* Date nav */
-.date-nav {
-  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
-}
-.date-nav button {
-  padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); cursor: pointer; font-size: 13px; color: var(--text);
-}
-.date-nav button:hover { background: #f1f5f9; }
-.date-nav span { font-size: 14px; font-weight: 600; min-width: 140px; text-align: center; }
-
-/* Modal */
-.modal-overlay {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,.4); align-items: center; justify-content: center; z-index: 100;
-}
-.modal-overlay.open { display: flex; }
-.modal {
-  background: var(--surface); border-radius: var(--radius); padding: 24px;
-  width: 90%; max-width: 440px; max-height: 90vh; overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0,0,0,.15);
-}
-.modal h2 { font-size: 17px; margin-bottom: 14px; }
-
-/* Responsive */
-@media (max-width: 768px) {
-  .sidebar { display: none; }
-  .main { padding: 16px; }
-  input[type="number"] { width: 70px; }
-}
-.mobile-nav {
-  display: none; position: fixed; bottom: 0; left: 0; right: 0;
-  background: var(--surface); border-top: 1px solid var(--border);
-  padding: 6px 0; z-index: 50;
-}
-@media (max-width: 768px) {
-  .mobile-nav { display: flex; justify-content: space-around; }
-  .main { padding-bottom: 70px; }
-}
-.mobile-nav .nav-item {
-  flex-direction: column; padding: 4px 10px; font-size: 10px; gap: 1px; width: auto;
-}
-.mobile-nav .nav-item svg { width: 16px; height: 16px; }
-</style>
-<!-- Firebase -->
+<link rel="stylesheet" href="style.css">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
 </head>
 <body>
 <div class="app">
@@ -291,19 +32,26 @@ tr:hover td { background: #f8fafc; }
   </aside>
 
   <main class="main">
+    <div class="store-bar">
+      <label>Store:</label>
+      <select id="store-select" onchange="switchStore(this.value)"></select>
+      <button onclick="addStore()">+ New</button>
+      <button onclick="deleteStore()" style="color:var(--danger)">Remove</button>
+    </div>
+
     <!-- Daily Log -->
     <section class="page active" id="page-log">
       <h1>Daily Log</h1>
       <p class="subtitle">Enter loss quantities for each item</p>
-      <div class="card" style="padding:16px 20px;margin-bottom:16px">
+      <div class="card" style="padding:14px 18px;margin-bottom:14px">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:6px">
-            <label style="font-size:13px;font-weight:500;color:var(--text-secondary)">Date:</label>
-            <input type="date" id="log-date" style="width:160px">
+            <label style="font-size:12px;font-weight:500;color:var(--text-secondary)">Date:</label>
+            <input type="date" id="log-date" style="width:150px">
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <button class="btn btn-primary" onclick="saveDailyLog()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
               Save
             </button>
             <span id="log-save-status" style="font-size:12px;color:var(--success);font-weight:500"></span>
@@ -313,15 +61,13 @@ tr:hover td { background: #f8fafc; }
       <div class="card" style="padding:0">
         <div class="table-wrap">
           <table>
-            <thead>
-              <tr><th style="width:40px">#</th><th>Item</th><th style="width:130px">Loss Qty</th><th style="width:80px">Unit</th></tr>
-            </thead>
+            <thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:120px">Loss Qty</th><th style="width:60px">Unit</th></tr></thead>
             <tbody id="log-tbody"></tbody>
           </table>
         </div>
       </div>
-      <div style="text-align:right;margin-top:12px">
-        <span id="log-total-label" style="font-size:13px;color:var(--text-secondary)">Total items with loss: 0</span>
+      <div style="text-align:right;margin-top:10px">
+        <span id="log-total-label" style="font-size:12px;color:var(--text-secondary)">Items with loss: 0</span>
       </div>
     </section>
 
@@ -333,32 +79,25 @@ tr:hover td { background: #f8fafc; }
         <button class="active" data-view="day">Day</button>
         <button data-view="week">Week</button>
       </div>
-
-      <!-- Day View -->
       <div id="hist-day-view">
         <div class="date-nav">
           <button onclick="histPrev()">&larr; Prev</button>
-          <input type="date" id="hist-date" onchange="renderHistory()" style="width:180px;text-align:center;font-weight:600">
+          <input type="date" id="hist-date" onchange="renderHistory()" style="width:170px;text-align:center;font-weight:600">
           <button onclick="histNext()">Next &rarr;</button>
           <button class="btn btn-sm btn-danger" onclick="deleteHistory()" style="margin-left:auto">Delete</button>
         </div>
         <div class="stats" id="hist-stats"></div>
         <div class="card" style="padding:0">
           <div class="table-wrap">
-            <table>
-              <thead><tr><th style="width:40px">#</th><th>Item</th><th style="width:100px">Loss Qty</th><th style="width:80px">Unit</th></tr></thead>
-              <tbody id="hist-tbody"></tbody>
-            </table>
+            <table><thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:90px">Loss Qty</th><th style="width:60px">Unit</th></tr></thead><tbody id="hist-tbody"></tbody></table>
           </div>
           <div class="empty" id="hist-empty"><p>No losses recorded for this date</p></div>
         </div>
       </div>
-
-      <!-- Week View -->
       <div id="hist-week-view" style="display:none">
         <div class="date-nav">
           <button onclick="weekPrev()">&larr; Prev Week</button>
-          <span id="hist-week-label" style="font-weight:600;min-width:200px;text-align:center"></span>
+          <span id="hist-week-label" style="font-weight:600;min-width:190px;text-align:center"></span>
           <button onclick="weekNext()">Next Week &rarr;</button>
         </div>
         <div class="card" style="padding:0">
@@ -377,10 +116,10 @@ tr:hover td { background: #f8fafc; }
     <section class="page" id="page-products">
       <h1>Products</h1>
       <p class="subtitle">Manage your tracked items</p>
-      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-        <input type="text" id="new-prod-name" placeholder="Add new item..." style="flex:1;max-width:260px">
-        <select id="new-prod-cat" style="width:140px"></select>
-        <select id="new-prod-unit" style="width:80px">
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <input type="text" id="new-prod-name" placeholder="Add new item..." style="flex:1;max-width:240px">
+        <select id="new-prod-cat" style="width:130px"></select>
+        <select id="new-prod-unit" style="width:70px">
           <option value="g">g</option><option value="pcs">pcs</option>
         </select>
         <button class="btn btn-primary" onclick="addProduct()">Add</button>
@@ -388,7 +127,7 @@ tr:hover td { background: #f8fafc; }
       <div class="card" style="padding:0">
         <div class="table-wrap">
           <table>
-            <thead><tr><th style="width:30px"></th><th>Item</th><th style="width:120px">Category</th><th style="width:80px">Unit</th><th style="width:80px"></th></tr></thead>
+            <thead><tr><th style="width:28px"></th><th>Item</th><th style="width:110px">Category</th><th style="width:70px">Unit</th><th style="width:70px"></th></tr></thead>
             <tbody id="prod-tbody"></tbody>
           </table>
         </div>
@@ -416,542 +155,6 @@ tr:hover td { background: #f8fafc; }
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<script>
-const DEFAULT_PRODUCTS = [
-  { n: "2%", c: "Milks" }, { n: "Oat", c: "Milks" }, { n: "Almond", c: "Milks" }, { n: "Coco", c: "Milks" },
-  { n: "Skim", c: "Milks" }, { n: "Cream", c: "Milks" }, { n: "Velvet", c: "Milks" }, { n: "Whole", c: "Milks" },
-  { n: "Cold brew", c: "Raw Material" }, { n: "Coconut water", c: "Raw Material" }, { n: "Jasmine", c: "Raw Material" },
-  { n: "Green coffee", c: "Raw Material" },
-  { n: "Mango puree", c: "Purees & Juices" }, { n: "Grapefruit pulp", c: "Purees & Juices" },
-  { n: "Pumpkin puree", c: "Purees & Juices" }, { n: "Purple juice", c: "Purees & Juices" },
-  { n: "Orange juice", c: "Purees & Juices" },
-  { n: "Chia seeds", c: "Raw Material" },
-  { n: "Whipping cream premix", c: "Premixes" }, { n: "Tiramisu cold foam", c: "Premixes" },
-  { n: "Condensed milk", c: "Premixes" },
-  { n: "Chocolate cookie", c: "Pastry" }, { n: "SEC", c: "Pastry" },
-  { n: "Almond croissant", c: "Pastry" }, { n: "Chocolate croissant", c: "Pastry" },
-  { n: "Chocolate muffin", c: "Pastry" },
-  { n: "Matcha", c: "Other" }, { n: "Chocolate", c: "Other" }, { n: "Chocolate chips", c: "Other" },
-  { n: "Caramel sauce", c: "Other" }
-];
-
-const CATEGORIES = ['Pastry', 'Milks', 'Raw Material', 'Purees & Juices', 'Other', 'Premixes'];
-
-// ---- Firebase config ----
-// 1. Go to https://console.firebase.google.com
-// 2. Create a project, enable Firestore (start in test mode)
-// 3. Register a web app, copy the config below, replace the values
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAe_2xEx6uCEPZr4MdOIBw4gCSJKxC1wi4",
-  authDomain: "loss-tracker-7bd9a.firebaseapp.com",
-  projectId: "loss-tracker-7bd9a",
-  storageBucket: "loss-tracker-7bd9a.firebasestorage.app",
-  messagingSenderId: "147406962467",
-  appId: "1:147406962467:web:ab3fba8fa191a8e9ac5696"
-};
-
-firebase.initializeApp(FIREBASE_CONFIG);
-const DB = firebase.firestore();
-const DOC_REF = DB.collection('apps').doc('loss-tracker');
-
-let data = null;
-let dataLoaded = false;
-let skipNextSnapshot = false;
-let firstSnapshot = true;
-
-function defaultData() {
-  return {
-    products: DEFAULT_PRODUCTS.map((p, i) => ({ id: i + 1, name: p.n, category: p.c, unit: 'g', createdAt: Date.now() })),
-    dailyLogs: {},
-    nextProductId: DEFAULT_PRODUCTS.length + 1,
-  };
-}
-
-function setConn(status, color) {
-  const el = document.getElementById('conn-status');
-  if (el) { el.textContent = status; el.style.color = color; }
-}
-
-// Real-time listener
-DOC_REF.onSnapshot((doc) => {
-  if (skipNextSnapshot) { skipNextSnapshot = false; return; }
-  if (doc.exists) {
-    data = doc.data();
-    if (!data.nextProductId) data.nextProductId = (data.products || []).length + 1;
-    if (!data.dailyLogs) data.dailyLogs = {};
-    // Migrate old category names
-    if (data.products) data.products.forEach(p => { if (p.category === 'Bakery' || p.category === 'Pastries') p.category = 'Pastry'; });
-  } else {
-    data = defaultData();
-    DOC_REF.set(data);
-  }
-  dataLoaded = true;
-  setConn('Live', 'var(--success)');
-  // Re-render current page (but preserve log inputs)
-  const active = document.querySelector('.page.active');
-  if (active && active.id !== 'page-log') {
-    renderPage(active.id.replace('page-', ''));
-  } else if (active) {
-    const clear = firstSnapshot;
-    firstSnapshot = false;
-    renderDailyLog(clear);
-  }
-}, (err) => {
-  setConn('Offline', 'var(--danger)');
-  data = data || defaultData();
-  dataLoaded = true;
-  renderPage(document.querySelector('.page.active')?.id?.replace('page-', '') || 'log');
-});
-
-function saveData() {
-  if (!dataLoaded || !data) return;
-  skipNextSnapshot = true;
-  DOC_REF.set(data).catch(() => { skipNextSnapshot = false; });
-}
-
-/* Navigation */
-document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
-  btn.addEventListener('click', () => navigate(btn.dataset.page));
-});
-
-function navigate(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.remove('active'));
-  document.getElementById(`page-${page}`).classList.add('active');
-  document.querySelectorAll(`.nav-item[data-page="${page}"]`).forEach(n => n.classList.add('active'));
-  if (page === 'log') renderDailyLog(true);
-  if (page === 'history') renderHistory();
-  if (page === 'products') { renderCatSelect(); renderProducts(); }
-}
-
-/* ======== DAILY LOG ======== */
-function renderDailyLog(clearInputs) {
-  if (!data) return;
-  const date = document.getElementById('log-date').value || dateStr(new Date());
-  document.getElementById('log-date').value = date;
-
-  const saved = data.dailyLogs[date] || {};
-  const tbody = document.getElementById('log-tbody');
-
-  const groups = {};
-  data.products.forEach(p => {
-    const cat = p.category || 'Other';
-    if (!groups[cat]) groups[cat] = [];
-    groups[cat].push(p);
-  });
-
-  let html = '';
-  let idx = 0;
-  const catOrder = categories();
-  catOrder.forEach(cat => {
-    if (!groups[cat] || groups[cat].length === 0) return;
-    html += `<tr style="background:#f8fafc"><td colspan="4" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
-    groups[cat].forEach(p => {
-      idx++;
-      const qty = clearInputs ? '' : (saved[p.id] || '');
-      html += `<tr>
-        <td style="color:var(--text-secondary)">${idx}</td>
-        <td><strong>${p.name}</strong></td>
-        <td><div class="qty-cell"><input type="number" step="0.1" min="0" id="log-qty-${p.id}" value="${qty}" placeholder="0" oninput="onLogQtyChange(${p.id})"></div></td>
-        <td>${p.unit}</td>
-      </tr>`;
-    });
-  });
-
-  tbody.innerHTML = html;
-  updateLogTotal();
-  const hasSaved = !!data.dailyLogs[date] && Object.keys(data.dailyLogs[date]).length > 0;
-  document.getElementById('log-save-status').textContent = hasSaved ? 'Saved' : '';
-}
-
-function onLogQtyChange(productId) {
-  const input = document.getElementById(`log-qty-${productId}`);
-  const val = parseFloat(input.value);
-  const chk = input.parentElement.querySelector('.qty-saved');
-  if (val > 0) {
-    input.style.borderColor = 'var(--success)';
-    if (!chk) input.parentElement.insertAdjacentHTML('beforeend', '<span class="qty-saved">&#10003;</span>');
-  } else {
-    input.style.borderColor = '';
-    if (chk) chk.remove();
-  }
-  updateLogTotal();
-}
-
-function updateLogTotal() {
-  let count = 0;
-  for (const p of data.products) {
-    const v = parseFloat(document.getElementById(`log-qty-${p.id}`)?.value);
-    if (v > 0) count++;
-  }
-  document.getElementById('log-total-label').textContent = `Items with loss: ${count}`;
-}
-
-function saveDailyLog() {
-  const date = document.getElementById('log-date').value;
-  if (!date) { toast('Please select a date'); return; }
-
-  const log = {};
-  for (const p of data.products) {
-    const v = parseFloat(document.getElementById(`log-qty-${p.id}`)?.value);
-    if (v > 0) log[p.id] = v;
-  }
-
-  if (Object.keys(log).length === 0) {
-    toast('No losses to save. Enter at least one quantity.');
-    return;
-  }
-
-  data.dailyLogs[date] = log;
-  saveData();
-  renderDailyLog(true);
-  toast(`Saved ${Object.keys(log).length} items for ${date}`);
-}
-
-/* ======== HISTORY ======== */
-let histView = 'day';
-let weekOffset = 0;
-
-document.querySelectorAll('#hist-view-toggle button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#hist-view-toggle button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    histView = btn.dataset.view;
-    document.getElementById('hist-day-view').style.display = histView === 'day' ? '' : 'none';
-    document.getElementById('hist-week-view').style.display = histView === 'week' ? '' : 'none';
-    renderHistory();
-  });
-});
-
-function histSortedDates() {
-  return Object.keys(data.dailyLogs).sort();
-}
-
-function renderHistory() {
-  if (histView === 'day') renderDayView();
-  else renderWeekView();
-}
-
-/* Day View */
-function renderDayView() {
-  if (!data) return;
-  const input = document.getElementById('hist-date');
-  if (!input.value) {
-    const sorted = histSortedDates();
-    input.value = sorted.length > 0 ? sorted[sorted.length - 1] : dateStr(new Date());
-  }
-  const targetDate = input.value;
-  const log = data.dailyLogs[targetDate] || {};
-  const entries = Object.keys(log).length;
-
-  let totalQty = 0;
-  for (const pid of Object.keys(log)) totalQty += log[pid];
-
-  document.getElementById('hist-stats').innerHTML = `
-    <div class="stat"><div class="stat-label">Date</div><div class="stat-value">${targetDate}</div></div>
-    <div class="stat"><div class="stat-label">Items Lost</div><div class="stat-value">${entries}</div></div>
-    <div class="stat"><div class="stat-label">Total Qty</div><div class="stat-value">${totalQty}</div></div>
-  `;
-
-  const tbody = document.getElementById('hist-tbody');
-  const empty = document.getElementById('hist-empty');
-
-  if (entries === 0) {
-    tbody.innerHTML = '';
-    empty.style.display = 'block';
-    return;
-  }
-  empty.style.display = 'none';
-
-  const groups = {};
-  data.products.forEach(p => {
-    if (!log[p.id]) return;
-    const cat = p.category || 'Other';
-    if (!groups[cat]) groups[cat] = [];
-    groups[cat].push(p);
-  });
-
-  let html = '';
-  let idx = 0;
-  categories().forEach(cat => {
-    if (!groups[cat]) return;
-    html += `<tr style="background:#f8fafc"><td colspan="4" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
-    groups[cat].forEach(p => {
-      idx++;
-      html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td>${log[p.id]}</td><td>${p.unit}</td></tr>`;
-    });
-  });
-  tbody.innerHTML = html;
-}
-
-function histPrev() {
-  const sorted = histSortedDates();
-  if (sorted.length === 0) return;
-  const cur = document.getElementById('hist-date').value || sorted[sorted.length - 1];
-  const idx = sorted.indexOf(cur);
-  if (idx > 0) {
-    document.getElementById('hist-date').value = sorted[idx - 1];
-    renderDayView();
-  }
-}
-
-function histNext() {
-  const sorted = histSortedDates();
-  if (sorted.length === 0) return;
-  const cur = document.getElementById('hist-date').value || sorted[sorted.length - 1];
-  const idx = sorted.indexOf(cur);
-  if (idx < sorted.length - 1) {
-    document.getElementById('hist-date').value = sorted[idx + 1];
-    renderDayView();
-  }
-}
-
-function deleteHistory() {
-  const date = document.getElementById('hist-date').value;
-  if (!date || !data.dailyLogs[date]) {
-    toast('No data for this date');
-    return;
-  }
-  if (!confirm(`Delete all loss records for ${date}?`)) return;
-  delete data.dailyLogs[date];
-  saveData();
-  renderDayView();
-  toast(`Deleted records for ${date}`);
-}
-
-/* Week View */
-function getWeekStart(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.getFullYear(), d.getMonth(), diff);
-}
-
-function addDays(d, n) {
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
-  return r;
-}
-
-function renderWeekView() {
-  if (!data) return;
-  const today = new Date();
-  const base = addDays(today, weekOffset * 7);
-  const weekStart = getWeekStart(base);
-
-  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const dates = dayLabels.map((_, i) => dateStr(addDays(weekStart, i)));
-
-  document.getElementById('hist-week-label').textContent =
-    `${dates[0]} — ${dates[6]}`;
-
-  // Build header
-  const thead = document.getElementById('week-thead');
-  thead.innerHTML = `<tr><th>Item</th>${dayLabels.map(d => `<th>${d}</th>`).join('')}<th class="col-total">Total</th><th>Unit</th></tr>`;
-
-  const tbody = document.getElementById('week-tbody');
-  const empty = document.getElementById('week-empty');
-
-  const groups = {};
-  data.products.forEach(p => {
-    const cat = p.category || 'Other';
-    if (!groups[cat]) groups[cat] = [];
-    const vals = dates.map(d => { const log = data.dailyLogs[d]; return log && log[p.id] ? log[p.id] : 0; });
-    const total = vals.reduce((s, v) => s + v, 0);
-    groups[cat].push({ name: p.name, unit: p.unit, vals, total });
-  });
-
-  let hasData = false;
-  let html = '';
-  categories().forEach(cat => {
-    const rows = groups[cat];
-    if (!rows || rows.every(r => r.total === 0)) return;
-    hasData = true;
-    const colSpan = dayLabels.length + 2;
-    html += `<tr style="background:#f8fafc"><td colspan="${colSpan}" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
-    rows.filter(r => r.total > 0).forEach(r => {
-      html += `<tr><td>${r.name}</td>${r.vals.map(v => `<td>${v || '-'}</td>`).join('')}<td class="col-total">${r.total}</td><td>${r.unit}</td></tr>`;
-    });
-  });
-
-  if (!hasData) {
-    tbody.innerHTML = '';
-    empty.style.display = 'block';
-    return;
-  }
-  empty.style.display = 'none';
-  tbody.innerHTML = html;
-}
-
-function weekPrev() { weekOffset--; renderWeekView(); }
-function weekNext() { weekOffset++; renderWeekView(); }
-
-/* ======== PRODUCTS ======== */
-let dragSrcId = null;
-
-function optionList(vals, cur) {
-  return vals.map(v => `<option value="${v}"${cur === v ? ' selected' : ''}>${v}</option>`).join('');
-}
-
-function renderProducts() {
-  if (!data) return;
-  const tbody = document.getElementById('prod-tbody');
-  tbody.innerHTML = data.products.map((p, i) => `<tr draggable="true"
-    data-id="${p.id}"
-    ondragstart="onDragStart(event)"
-    ondragover="onDragOver(event)"
-    ondrop="onDrop(event)"
-    ondragend="onDragEnd(event)"
-    style="cursor:default">
-    <td style="color:var(--text-secondary);font-size:11px;cursor:grab;width:30px" class="drag-handle">&#x2630;</td>
-    <td><strong>${p.name}</strong></td>
-    <td>
-      <select onchange="changeCat(${p.id}, this.value)" style="padding:4px 6px;font-size:12px;width:120px">
-        ${optionList(categories(), p.category)}
-      </select>
-    </td>
-    <td>
-      <select onchange="changeUnit(${p.id}, this.value)" style="padding:4px 6px;font-size:12px;width:80px">
-        ${optionList(['g','pcs'], p.unit)}
-      </select>
-    </td>
-    <td>
-      <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">Remove</button>
-    </td>
-  </tr>`).join('');
-}
-
-function categories() {
-  const used = new Set();
-  data.products.forEach(p => { if (p.category) used.add(p.category); });
-  const ordered = CATEGORIES.filter(c => used.has(c));
-  const extra = [...used].filter(c => !CATEGORIES.includes(c));
-  return [...ordered, ...extra];
-}
-
-function onDragStart(e) {
-  const tr = e.target.closest('tr');
-  dragSrcId = tr.dataset.id;
-  e.dataTransfer.effectAllowed = 'move';
-
-  const name = tr.querySelector('td:nth-child(2)')?.textContent || 'item';
-  const c = document.createElement('canvas');
-  c.width = 200; c.height = 28;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#6366f1'; ctx.beginPath(); ctx.roundRect(0,0,200,28,6); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.font = '14px -apple-system, sans-serif';
-  ctx.fillText(name, 14, 19);
-  e.dataTransfer.setDragImage(c, 14, 14);
-
-  requestAnimationFrame(() => tr.classList.add('dragging'));
-}
-
-function onDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  document.querySelectorAll('#prod-tbody tr').forEach(tr => tr.classList.remove('drag-over-above', 'drag-over-below'));
-  const tr = e.target.closest('tr');
-  if (!tr || tr.dataset.id === dragSrcId) return;
-  const rect = tr.getBoundingClientRect();
-  const mid = rect.top + rect.height / 2;
-  tr.classList.add(e.clientY < mid ? 'drag-over-above' : 'drag-over-below');
-}
-
-function onDrop(e) {
-  e.preventDefault();
-  const targetTr = e.target.closest('tr');
-  if (!targetTr || !dragSrcId) return;
-  const targetId = targetTr.dataset.id;
-  if (dragSrcId === targetId) return;
-
-  const srcIdx = data.products.findIndex(p => p.id == dragSrcId);
-  let tgtIdx = data.products.findIndex(p => p.id == targetId);
-  if (srcIdx === -1 || tgtIdx === -1) return;
-
-  const rect = targetTr.getBoundingClientRect();
-  const below = e.clientY >= rect.top + rect.height / 2;
-
-  const [moved] = data.products.splice(srcIdx, 1);
-  if (srcIdx < tgtIdx) tgtIdx--;
-
-  data.products.splice(below ? tgtIdx + 1 : tgtIdx, 0, moved);
-  saveData();
-  renderProducts();
-}
-
-function onDragEnd(e) {
-  e.target.closest('tr').classList.remove('dragging');
-  document.querySelectorAll('#prod-tbody tr').forEach(tr => tr.classList.remove('drag-over-above', 'drag-over-below'));
-  dragSrcId = null;
-}
-
-function changeUnit(id, unit) {
-  const p = data.products.find(p => p.id === id);
-  if (p) { p.unit = unit; saveData(); }
-}
-
-function changeCat(id, category) {
-  const p = data.products.find(p => p.id === id);
-  if (p) { p.category = category; saveData(); }
-}
-
-function renderCatSelect() {
-  if (!data) return;
-  const sel = document.getElementById('new-prod-cat');
-  sel.innerHTML = optionList(categories(), categories()[0] || 'Other');
-}
-
-function addProduct() {
-  const name = document.getElementById('new-prod-name').value.trim();
-  if (!name) { toast('Enter a product name'); return; }
-  if (data.products.some(p => p.name.toLowerCase() === name.toLowerCase())) {
-    toast('Product already exists'); return;
-  }
-  const category = document.getElementById('new-prod-cat').value;
-  const unit = document.getElementById('new-prod-unit').value;
-  data.products.push({ id: data.nextProductId++, name, category, unit, createdAt: Date.now() });
-  saveData();
-  document.getElementById('new-prod-name').value = '';
-  renderCatSelect();
-  renderProducts();
-  renderDailyLog();
-  toast(`Added "${name}"`);
-}
-
-function deleteProduct(id) {
-  if (!confirm('Remove this product?')) return;
-  data.products = data.products.filter(p => p.id !== id);
-  saveData();
-  renderCatSelect();
-  renderProducts();
-  renderDailyLog();
-}
-
-/* ======== HELPERS ======== */
-function dateStr(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-let toastTimer;
-
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
-}
-
-/* Init */
-document.getElementById('log-date').value = dateStr(new Date());
-document.getElementById('log-date').addEventListener('change', function() {
-  renderDailyLog(true);
-});
-renderCatSelect();
-setConn('Connecting...', 'var(--text-secondary)');
-</script>
+<script src="app.js"></script>
 </body>
 </html>
