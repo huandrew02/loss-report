@@ -60,46 +60,35 @@ function login() {
 }
 
 function register() {
-  const name = document.getElementById('reg-name').value.trim();
-  const storeName = document.getElementById('reg-store').value.trim();
   const username = document.getElementById('reg-username').value.trim();
   const pass = document.getElementById('reg-pass').value;
   const err = document.getElementById('reg-error');
   err.style.display = 'none';
-  if (!name || !storeName || !username || !pass) { err.textContent = 'Fill in all fields'; err.style.display = ''; return; }
+  if (!username || !pass) { err.textContent = 'Fill in all fields'; err.style.display = ''; return; }
   if (pass.length < 6) { err.textContent = 'Password must be at least 6 characters'; err.style.display = ''; return; }
+  if (!/^[a-zA-Z0-9-]+$/.test(username)) { err.textContent = 'Use only letters, numbers, and hyphens'; err.style.display = ''; return; }
 
-  const storeId = storeName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'my-store';
+  const storeId = 'store-' + username.toLowerCase();
   const email = usernameToEmail(username);
 
-  // Check if username taken
   DB.collection('usernames').doc(username.toLowerCase()).get().then(snap => {
     if (snap.exists) { err.textContent = 'Username already taken'; err.style.display = ''; return; }
 
     AUTH.createUserWithEmailAndPassword(email, pass)
       .then(cred => {
-        cred.user.updateProfile({ displayName: name }).catch(() => {});
-        // Reserve username
         DB.collection('usernames').doc(username.toLowerCase()).set({ uid: cred.user.uid }).catch(() => {});
-        // Create store with default data
         const storeDoc = DB.collection('stores').doc(storeId);
         storeDoc.set(defaultData()).then(() => {
-          DB.collection('userStores').doc(cred.user.uid).set({ storeId, storeName, userName: name }).catch(() => {});
-          DB.collection('meta').doc('stores').get().then(d => {
-            const list = (d.exists && d.data().stores) || [];
-            if (!list.some(s => s.id === storeId)) { list.push({ id: storeId, name: storeName }); DB.collection('meta').doc('stores').set({ stores: list }); }
-          }).catch(() => {});
+          DB.collection('userStores').doc(cred.user.uid).set({ storeId, storeName: username, userName: username }).catch(() => {});
         });
       })
       .catch(e => { err.textContent = e.message; err.style.display = ''; });
   }).catch(() => {
-    // Fallback: try creating account directly
     AUTH.createUserWithEmailAndPassword(email, pass)
       .then(cred => {
-        cred.user.updateProfile({ displayName: name }).catch(() => {});
         const storeDoc = DB.collection('stores').doc(storeId);
         storeDoc.set(defaultData()).then(() => {
-          DB.collection('userStores').doc(cred.user.uid).set({ storeId, storeName, userName: name }).catch(() => {});
+          DB.collection('userStores').doc(cred.user.uid).set({ storeId, storeName: username, userName: username }).catch(() => {});
         });
       })
       .catch(e => { err.textContent = e.message; err.style.display = ''; });
@@ -122,7 +111,7 @@ AUTH.onAuthStateChanged(user => {
     DB.collection('userStores').doc(user.uid).get().then(doc => {
       if (doc.exists) {
         const s = doc.data();
-        document.getElementById('user-store').textContent = s.storeName || s.storeId;
+        document.getElementById('user-store').textContent = s.userName ? 'Store ' + s.userName : 'Store';
         loadStore(s.storeId);
       } else {
         document.getElementById('user-store').textContent = 'No store assigned';
@@ -134,8 +123,6 @@ AUTH.onAuthStateChanged(user => {
     // Reset login form fields
     document.getElementById('login-username').value = '';
     document.getElementById('login-pass').value = '';
-    document.getElementById('reg-name').value = '';
-    document.getElementById('reg-store').value = '';
     document.getElementById('reg-username').value = '';
     document.getElementById('reg-pass').value = '';
     openLogin();
