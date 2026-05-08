@@ -77,19 +77,15 @@ function register() {
     AUTH.createUserWithEmailAndPassword(email, pass)
       .then(cred => {
         DB.collection('usernames').doc(username.toLowerCase()).set({ uid: cred.user.uid }).catch(() => {});
-        const storeDoc = DB.collection('stores').doc(storeId);
-        storeDoc.set(defaultData()).then(() => {
-          DB.collection('userStores').doc(cred.user.uid).set({ storeId, storeName: username, userName: username }).catch(() => {});
-        });
+        DB.collection('userStores').doc(cred.user.uid).set({ storeId, userName: username });
+        DB.collection('stores').doc(storeId).set(defaultData());
       })
       .catch(e => { err.textContent = e.message; err.style.display = ''; });
   }).catch(() => {
     AUTH.createUserWithEmailAndPassword(email, pass)
       .then(cred => {
-        const storeDoc = DB.collection('stores').doc(storeId);
-        storeDoc.set(defaultData()).then(() => {
-          DB.collection('userStores').doc(cred.user.uid).set({ storeId, storeName: username, userName: username }).catch(() => {});
-        });
+        DB.collection('userStores').doc(cred.user.uid).set({ storeId, userName: username });
+        DB.collection('stores').doc(storeId).set(defaultData());
       })
       .catch(e => { err.textContent = e.message; err.style.display = ''; });
   });
@@ -111,13 +107,19 @@ AUTH.onAuthStateChanged(user => {
     DB.collection('userStores').doc(user.uid).get().then(doc => {
       if (doc.exists) {
         const s = doc.data();
-        document.getElementById('user-store').textContent = s.userName ? 'Store ' + s.userName : 'Store';
-        loadStore(s.storeId);
-      } else {
-        document.getElementById('user-store').textContent = 'No store assigned';
-        loadStore('default');
+        if (s.storeId) {
+          document.getElementById('user-store').textContent = s.userName ? 'Store ' + s.userName : 'Store';
+          loadStore(s.storeId);
+          return;
+        }
       }
-    }).catch(() => loadStore('default'));
+      document.getElementById('user-store').textContent = 'No store assigned';
+      document.getElementById('app-content').style.display = '';
+    }).catch(() => {
+      document.getElementById('user-store').textContent = 'Error loading store';
+      document.getElementById('app-content').style.display = '';
+      setConn('Error', 'var(--danger)');
+    });
   } else {
     document.getElementById('app-content').style.display = 'none';
     // Reset login form fields
