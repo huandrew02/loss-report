@@ -22,12 +22,16 @@ const FIREBASE_CONFIG = {
 #login-screen { display:none; position:fixed; inset:0; background:var(--bg); z-index:500; align-items:center; justify-content:center; }
 #login-screen.open { display:flex; }
 .login-box { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:32px; width:90%; max-width:380px; }
-.login-box h1 { font-size:20px; margin-bottom:4px; }
-.login-box p { color:var(--text-secondary); font-size:13px; margin-bottom:20px; }
+.login-box h1 { font-size:20px; margin-bottom:4px; color:var(--primary); }
+.login-box .sub { color:var(--text-secondary); font-size:13px; margin-bottom:20px; }
 .login-box .form-group { margin-bottom:14px; }
 .login-box .form-group label { display:block; font-size:12px; font-weight:500; color:var(--text-secondary); margin-bottom:4px; }
 .login-box input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; }
 .login-box .btn { width:100%; justify-content:center; padding:11px; margin-top:4px; }
+.login-box .toggle-link { text-align:center; margin-top:12px; font-size:13px; }
+.login-box .toggle-link a { color:var(--primary); cursor:pointer; text-decoration:none; font-weight:500; }
+.login-box .toggle-link a:hover { text-decoration:underline; }
+.login-box .error { color:var(--danger); font-size:12px; margin-top:6px; display:none; }
 </style>
 </head>
 <body>
@@ -36,11 +40,27 @@ const FIREBASE_CONFIG = {
 <div id="login-screen">
   <div class="login-box">
     <h1>Loss Tracker</h1>
-    <p>Sign in to your store</p>
-    <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="you@store.com"></div>
-    <div class="form-group"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••"></div>
-    <button class="btn btn-primary" onclick="login()">Sign In</button>
-    <p style="margin-top:12px;font-size:12px;text-align:center">No account? Contact your manager to create one.</p>
+    <p class="sub" id="login-sub">Sign in to your store</p>
+
+    <!-- Sign In -->
+    <div id="signin-form">
+      <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="you@store.com"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••"></div>
+      <div class="error" id="login-error"></div>
+      <button class="btn btn-primary" onclick="login()">Sign In</button>
+      <div class="toggle-link">No account? <a onclick="showRegister()">Create one</a></div>
+    </div>
+
+    <!-- Register -->
+    <div id="register-form" style="display:none">
+      <div class="form-group"><label>Your Name</label><input type="text" id="reg-name" placeholder="e.g. Andrew"></div>
+      <div class="form-group"><label>Store Name</label><input type="text" id="reg-store" placeholder="e.g. Downtown Cafe"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="reg-email" placeholder="you@store.com"></div>
+      <div class="form-group"><label>Password (min 6 chars)</label><input type="password" id="reg-pass" placeholder="••••••••"></div>
+      <div class="error" id="reg-error"></div>
+      <button class="btn btn-primary" onclick="register()">Create Account</button>
+      <div class="toggle-link">Already have an account? <a onclick="showLogin()">Sign in</a></div>
+    </div>
   </div>
 </div>
 
@@ -55,6 +75,7 @@ const FIREBASE_CONFIG = {
     </div>
     <div id="auth-section" style="padding:8px 20px 12px;border-bottom:1px solid var(--border);margin-bottom:4px;font-size:12px">
       <div id="user-email" style="color:var(--text-secondary);font-weight:500;margin-bottom:4px"></div>
+      <div id="user-store" style="font-weight:600;color:var(--primary);margin-bottom:4px"></div>
       <button onclick="logout()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:11px;padding:0">Sign out</button>
     </div>
     <button class="nav-item active" data-page="log">
@@ -72,13 +93,6 @@ const FIREBASE_CONFIG = {
   </aside>
 
   <main class="main">
-    <div class="store-bar">
-      <label>Store:</label>
-      <select id="store-select" onchange="switchStore(this.value)"></select>
-      <button onclick="addStore()">+ New</button>
-      <span id="login-btn-row" style="margin-left:auto;font-size:12px;color:var(--text-secondary)">Not signed in</span>
-    </div>
-
     <!-- Daily Log -->
     <section class="page active" id="page-log">
       <h1>Daily Log</h1>

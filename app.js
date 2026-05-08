@@ -31,9 +31,6 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const DB = firebase.firestore();
 const AUTH = firebase.auth();
 
-const META_REF = DB.collection('meta').doc('stores');
-const USER_STORE_REF = uid => DB.collection('userStores').doc(uid);
-
 let data = null;
 let dataLoaded = false;
 let skipNextSnapshot = false;
@@ -42,52 +39,88 @@ let currentStore = '';
 let unsubscribeStore = null;
 let currentUser = null;
 
-// ---- Auth ----
-function showLogin() { document.getElementById('login-screen').classList.add('open'); }
-function hideLogin() { document.getElementById('login-screen').classList.remove('open'); }
+// ---- Auth UI ----
+function showLoginForm() { document.getElementById('signin-form').style.display = ''; document.getElementById('register-form').style.display = 'none'; document.getElementById('login-sub').textContent = 'Sign in to your store'; document.getElementById('login-error').style.display = 'none'; document.getElementById('reg-error').style.display = 'none'; }
+function showRegister() { document.getElementById('signin-form').style.display = 'none'; document.getElementById('register-form').style.display = ''; document.getElementById('login-sub').textContent = 'Create your store account'; document.getElementById('login-error').style.display = 'none'; document.getElementById('reg-error').style.display = 'none'; }
 
-function renderAuth() {
-  if (currentUser) {
-    document.getElementById('user-email').textContent = currentUser.email;
-    document.getElementById('auth-section').style.display = '';
-    document.getElementById('login-btn-row').style.display = 'none';
-  } else {
-    document.getElementById('auth-section').style.display = 'none';
-    document.getElementById('login-btn-row').style.display = '';
-  }
-}
+function openLogin() { document.getElementById('login-screen').classList.add('open'); showLoginForm(); }
+function closeLogin() { document.getElementById('login-screen').classList.remove('open'); }
 
 function login() {
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-pass').value;
-  if (!email || !pass) { toast('Enter email and password'); return; }
-  AUTH.signInWithEmailAndPassword(email, pass).catch(err => toast(err.message));
+  const err = document.getElementById('login-error');
+  err.style.display = 'none';
+  if (!email || !pass) { err.textContent = 'Enter email and password'; err.style.display = ''; return; }
+  AUTH.signInWithEmailAndPassword(email, pass).catch(e => { err.textContent = e.message; err.style.display = ''; });
+}
+
+function register() {
+  const name = document.getElementById('reg-name').value.trim();
+  const storeName = document.getElementById('reg-store').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pass = document.getElementById('reg-pass').value;
+  const err = document.getElementById('reg-error');
+  err.style.display = 'none';
+  if (!name || !storeName || !email || !pass) { err.textContent = 'Fill in all fields'; err.style.display = ''; return; }
+  if (pass.length < 6) { err.textContent = 'Password must be at least 6 characters'; err.style.display = ''; return; }
+
+  const storeId = storeName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'my-store';
+
+  AUTH.createUserWithEmailAndPassword(email, pass)
+    .then(cred => {
+      cred.user.updateProfile({ displayName: name }).catch(() => {});
+      // Create store with default data
+      const storeDoc = DB.collection('stores').doc(storeId);
+      storeDoc.set(defaultData()).then(() => {
+        // Create user->store mapping
+        DB.collection('userStores').doc(cred.user.uid).set({ storeId, storeName, userName: name }).catch(() => {});
+        // Also add to meta/stores list
+        DB.collection('meta').doc('stores').get().then(d => {
+          const list = (d.exists && d.data().stores) || [];
+          if (!list.some(s => s.id === storeId)) {
+            list.push({ id: storeId, name: storeName });
+            DB.collection('meta').doc('stores').set({ stores: list });
+          }
+        }).catch(() => {});
+      });
+    })
+    .catch(e => { err.textContent = e.message; err.style.display = ''; });
 }
 
 function logout() {
   AUTH.signOut();
-  currentUser = null;
-  currentStore = '';
-  data = null;
-  renderAuth();
-  showLogin();
+  currentUser = null; currentStore = ''; data = null;
+  document.getElementById('app-content').style.display = 'none';
+  openLogin();
 }
 
 AUTH.onAuthStateChanged(user => {
   currentUser = user;
-  renderAuth();
   if (user) {
-    hideLogin();
-    USER_STORE_REF(user.uid).get().then(doc => {
-      if (doc.exists && doc.data().storeId) {
-        loadStores(doc.data().storeId);
+    document.getElementById('user-email').textContent = user.email;
+    closeLogin();
+    // Load their assigned store
+    DB.collection('userStores').doc(user.uid).get().then(doc => {
+      if (doc.exists) {
+        const s = doc.data();
+        document.getElementById('user-store').textContent = s.storeName || s.storeId;
+        loadStore(s.storeId);
       } else {
-        loadStores();
+        document.getElementById('user-store').textContent = 'No store assigned';
+        loadStore('default');
       }
-    }).catch(() => loadStores());
+    }).catch(() => loadStore('default'));
   } else {
-    showLogin();
     document.getElementById('app-content').style.display = 'none';
+    // Reset login form fields
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-pass').value = '';
+    document.getElementById('reg-name').value = '';
+    document.getElementById('reg-store').value = '';
+    document.getElementById('reg-email').value = '';
+    document.getElementById('reg-pass').value = '';
+    openLogin();
   }
 });
 
@@ -96,32 +129,11 @@ function setConn(status, color) {
   if (el) { el.textContent = status; el.style.color = color; }
 }
 
-function storeRef() { return DB.collection('stores').doc(currentStore || 'default'); }
-
-// ---- Store management ----
-let stores = [];
-
-function renderStoreSelector() {
-  const sel = document.getElementById('store-select');
-  const cur = currentStore || 'default';
-  sel.innerHTML = stores.map(s => `<option value="${s.id}"${s.id === cur ? ' selected' : ''}>${s.name}</option>`).join('');
-}
-
-function switchStore(id) {
-  if (id === currentStore || !id) return;
-  currentStore = id;
-  localStorage.setItem('currentStore', id);
-  if (currentUser) USER_STORE_REF(currentUser.uid).set({ storeId: id }).catch(() => {});
-  dataLoaded = false; data = null;
-  setConn('Loading...', 'var(--text-secondary)');
-  firstSnapshot = true;
+// ---- Store loading ----
+function loadStore(storeId) {
+  currentStore = storeId;
   if (unsubscribeStore) unsubscribeStore();
-  attachStoreListener();
-}
-
-function attachStoreListener() {
-  if (!currentStore) { currentStore = stores[0]?.id || 'default'; }
-  unsubscribeStore = storeRef().onSnapshot((doc) => {
+  unsubscribeStore = DB.collection('stores').doc(storeId).onSnapshot((doc) => {
     if (skipNextSnapshot) { skipNextSnapshot = false; return; }
     if (doc.exists) {
       data = doc.data();
@@ -132,7 +144,7 @@ function attachStoreListener() {
       });
     } else {
       data = defaultData();
-      storeRef().set(data);
+      doc.ref.set(data);
     }
     dataLoaded = true;
     document.getElementById('app-content').style.display = '';
@@ -148,38 +160,10 @@ function attachStoreListener() {
   });
 }
 
-function loadStores(assignedStore) {
-  META_REF.get().then(doc => {
-    stores = (doc.exists && doc.data().stores) ? doc.data().stores : [{ id: 'default', name: 'Store 1' }];
-    if (!doc.exists) META_REF.set({ stores });
-    renderStoreSelector();
-    currentStore = assignedStore || localStorage.getItem('currentStore') || stores[0]?.id || 'default';
-    if (!stores.some(s => s.id === currentStore)) currentStore = stores[0]?.id || 'default';
-    document.getElementById('store-select').value = currentStore;
-    attachStoreListener();
-  }).catch(() => {
-    stores = [{ id: 'default', name: 'Store 1' }];
-    renderStoreSelector(); attachStoreListener();
-  });
-}
-
-function addStore() {
-  if (!currentUser) { toast('Must be logged in'); return; }
-  const name = prompt('New store name:');
-  if (!name) return;
-  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'store';
-  if (stores.some(s => s.id === id)) { toast('Store already exists'); return; }
-  stores.push({ id, name });
-  META_REF.set({ stores });
-  renderStoreSelector();
-  switchStore(id);
-  toast(`Added "${name}"`);
-}
-
 function saveData() {
   if (!dataLoaded || !data) return;
   skipNextSnapshot = true;
-  storeRef().set(data).catch(() => { skipNextSnapshot = false; });
+  DB.collection('stores').doc(currentStore).set(data).catch(() => { skipNextSnapshot = false; });
 }
 
 // ---- Navigation ----
@@ -445,14 +429,10 @@ function renderProducts() {
   </tr>`).join('');
 }
 
-function onDragStart(e) { /* same as before */ const tr=e.target.closest('tr'); dragSrcId=tr.dataset.id; e.dataTransfer.effectAllowed='move'; const name=tr.querySelector('td:nth-child(2)')?.textContent||'item'; const c=document.createElement('canvas'); c.width=200; c.height=28; const ctx=c.getContext('2d'); ctx.fillStyle='#6366f1'; ctx.beginPath(); ctx.roundRect(0,0,200,28,6); ctx.fill(); ctx.fillStyle='#fff'; ctx.font='14px -apple-system, sans-serif'; ctx.fillText(name,14,19); e.dataTransfer.setDragImage(c,14,14); requestAnimationFrame(()=>tr.classList.add('dragging')); }
-
+function onDragStart(e) { const tr=e.target.closest('tr'); dragSrcId=tr.dataset.id; e.dataTransfer.effectAllowed='move'; const name=tr.querySelector('td:nth-child(2)')?.textContent||'item'; const c=document.createElement('canvas'); c.width=200; c.height=28; const ctx=c.getContext('2d'); ctx.fillStyle='#6366f1'; ctx.beginPath(); ctx.roundRect(0,0,200,28,6); ctx.fill(); ctx.fillStyle='#fff'; ctx.font='14px -apple-system, sans-serif'; ctx.fillText(name,14,19); e.dataTransfer.setDragImage(c,14,14); requestAnimationFrame(()=>tr.classList.add('dragging')); }
 function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect='move'; document.querySelectorAll('#prod-tbody tr').forEach(tr=>tr.classList.remove('drag-over-above','drag-over-below')); const tr=e.target.closest('tr'); if(!tr||tr.dataset.id===dragSrcId) return; const rect=tr.getBoundingClientRect(); tr.classList.add(e.clientY<rect.top+rect.height/2?'drag-over-above':'drag-over-below'); }
-
 function onDrop(e) { e.preventDefault(); const targetTr=e.target.closest('tr'); if(!targetTr||!dragSrcId) return; const targetId=targetTr.dataset.id; if(dragSrcId===targetId) return; let srcIdx=data.products.findIndex(p=>p.id==dragSrcId); let tgtIdx=data.products.findIndex(p=>p.id==targetId); if(srcIdx===-1||tgtIdx===-1) return; const rect=targetTr.getBoundingClientRect(); const below=e.clientY>=rect.top+rect.height/2; const [moved]=data.products.splice(srcIdx,1); if(srcIdx<tgtIdx) tgtIdx--; data.products.splice(below?tgtIdx+1:tgtIdx,0, moved); saveData(); renderProducts(); }
-
 function onDragEnd(e) { e.target.closest('tr').classList.remove('dragging'); document.querySelectorAll('#prod-tbody tr').forEach(tr=>tr.classList.remove('drag-over-above','drag-over-below')); dragSrcId=null; }
-
 function changeUnit(id, unit) { const p=data.products.find(p=>p.id===id); if(p){p.unit=unit; saveData();} }
 function changeCat(id, cat) { const p=data.products.find(p=>p.id===id); if(p){p.category=cat; saveData();} }
 
