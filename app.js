@@ -40,52 +40,70 @@ let unsubscribeStore = null;
 let currentUser = null;
 
 // ---- Auth UI ----
-function showLoginForm() { document.getElementById('signin-form').style.display = ''; document.getElementById('register-form').style.display = 'none'; document.getElementById('login-sub').textContent = 'Sign in to your store'; document.getElementById('login-error').style.display = 'none'; document.getElementById('reg-error').style.display = 'none'; }
+function showLogin() { document.getElementById('signin-form').style.display = ''; document.getElementById('register-form').style.display = 'none'; document.getElementById('login-sub').textContent = 'Sign in to your store'; document.getElementById('login-error').style.display = 'none'; document.getElementById('reg-error').style.display = 'none'; }
 function showRegister() { document.getElementById('signin-form').style.display = 'none'; document.getElementById('register-form').style.display = ''; document.getElementById('login-sub').textContent = 'Create your store account'; document.getElementById('login-error').style.display = 'none'; document.getElementById('reg-error').style.display = 'none'; }
 
-function openLogin() { document.getElementById('login-screen').classList.add('open'); showLoginForm(); }
+function openLogin() { document.getElementById('login-screen').classList.add('open'); showLogin(); }
 function closeLogin() { document.getElementById('login-screen').classList.remove('open'); }
 
+const FAKE_DOMAIN = '@lt.app';
+
+function usernameToEmail(username) { return username.trim().toLowerCase().replace(/\s+/g, '-') + FAKE_DOMAIN; }
+
 function login() {
-  const email = document.getElementById('login-email').value.trim();
+  const username = document.getElementById('login-username').value.trim();
   const pass = document.getElementById('login-pass').value;
   const err = document.getElementById('login-error');
   err.style.display = 'none';
-  if (!email || !pass) { err.textContent = 'Enter email and password'; err.style.display = ''; return; }
-  AUTH.signInWithEmailAndPassword(email, pass).catch(e => { err.textContent = e.message; err.style.display = ''; });
+  if (!username || !pass) { err.textContent = 'Enter username and password'; err.style.display = ''; return; }
+  AUTH.signInWithEmailAndPassword(usernameToEmail(username), pass).catch(e => { err.textContent = e.message; err.style.display = ''; });
 }
 
 function register() {
   const name = document.getElementById('reg-name').value.trim();
   const storeName = document.getElementById('reg-store').value.trim();
-  const email = document.getElementById('reg-email').value.trim();
+  const username = document.getElementById('reg-username').value.trim();
   const pass = document.getElementById('reg-pass').value;
   const err = document.getElementById('reg-error');
   err.style.display = 'none';
-  if (!name || !storeName || !email || !pass) { err.textContent = 'Fill in all fields'; err.style.display = ''; return; }
+  if (!name || !storeName || !username || !pass) { err.textContent = 'Fill in all fields'; err.style.display = ''; return; }
   if (pass.length < 6) { err.textContent = 'Password must be at least 6 characters'; err.style.display = ''; return; }
 
   const storeId = storeName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'my-store';
+  const email = usernameToEmail(username);
 
-  AUTH.createUserWithEmailAndPassword(email, pass)
-    .then(cred => {
-      cred.user.updateProfile({ displayName: name }).catch(() => {});
-      // Create store with default data
-      const storeDoc = DB.collection('stores').doc(storeId);
-      storeDoc.set(defaultData()).then(() => {
-        // Create user->store mapping
-        DB.collection('userStores').doc(cred.user.uid).set({ storeId, storeName, userName: name }).catch(() => {});
-        // Also add to meta/stores list
-        DB.collection('meta').doc('stores').get().then(d => {
-          const list = (d.exists && d.data().stores) || [];
-          if (!list.some(s => s.id === storeId)) {
-            list.push({ id: storeId, name: storeName });
-            DB.collection('meta').doc('stores').set({ stores: list });
-          }
-        }).catch(() => {});
-      });
-    })
-    .catch(e => { err.textContent = e.message; err.style.display = ''; });
+  // Check if username taken
+  DB.collection('usernames').doc(username.toLowerCase()).get().then(snap => {
+    if (snap.exists) { err.textContent = 'Username already taken'; err.style.display = ''; return; }
+
+    AUTH.createUserWithEmailAndPassword(email, pass)
+      .then(cred => {
+        cred.user.updateProfile({ displayName: name }).catch(() => {});
+        // Reserve username
+        DB.collection('usernames').doc(username.toLowerCase()).set({ uid: cred.user.uid }).catch(() => {});
+        // Create store with default data
+        const storeDoc = DB.collection('stores').doc(storeId);
+        storeDoc.set(defaultData()).then(() => {
+          DB.collection('userStores').doc(cred.user.uid).set({ storeId, storeName, userName: name }).catch(() => {});
+          DB.collection('meta').doc('stores').get().then(d => {
+            const list = (d.exists && d.data().stores) || [];
+            if (!list.some(s => s.id === storeId)) { list.push({ id: storeId, name: storeName }); DB.collection('meta').doc('stores').set({ stores: list }); }
+          }).catch(() => {});
+        });
+      })
+      .catch(e => { err.textContent = e.message; err.style.display = ''; });
+  }).catch(() => {
+    // Fallback: try creating account directly
+    AUTH.createUserWithEmailAndPassword(email, pass)
+      .then(cred => {
+        cred.user.updateProfile({ displayName: name }).catch(() => {});
+        const storeDoc = DB.collection('stores').doc(storeId);
+        storeDoc.set(defaultData()).then(() => {
+          DB.collection('userStores').doc(cred.user.uid).set({ storeId, storeName, userName: name }).catch(() => {});
+        });
+      })
+      .catch(e => { err.textContent = e.message; err.style.display = ''; });
+  });
 }
 
 function logout() {
@@ -114,11 +132,11 @@ AUTH.onAuthStateChanged(user => {
   } else {
     document.getElementById('app-content').style.display = 'none';
     // Reset login form fields
-    document.getElementById('login-email').value = '';
+    document.getElementById('login-username').value = '';
     document.getElementById('login-pass').value = '';
     document.getElementById('reg-name').value = '';
     document.getElementById('reg-store').value = '';
-    document.getElementById('reg-email').value = '';
+    document.getElementById('reg-username').value = '';
     document.getElementById('reg-pass').value = '';
     openLogin();
   }
