@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="style.css">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script>
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAe_2xEx6uCEPZr4MdOIBw4gCSJKxC1wi4",
@@ -17,14 +18,44 @@ const FIREBASE_CONFIG = {
   appId: "1:147406962467:web:ab3fba8fa191a8e9ac5696"
 };
 </script>
+<style>
+#login-screen { display:none; position:fixed; inset:0; background:var(--bg); z-index:500; align-items:center; justify-content:center; }
+#login-screen.open { display:flex; }
+.login-box { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:32px; width:90%; max-width:380px; }
+.login-box h1 { font-size:20px; margin-bottom:4px; }
+.login-box p { color:var(--text-secondary); font-size:13px; margin-bottom:20px; }
+.login-box .form-group { margin-bottom:14px; }
+.login-box .form-group label { display:block; font-size:12px; font-weight:500; color:var(--text-secondary); margin-bottom:4px; }
+.login-box input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; }
+.login-box .btn { width:100%; justify-content:center; padding:11px; margin-top:4px; }
+</style>
 </head>
 <body>
+
+<!-- Login Screen -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>Loss Tracker</h1>
+    <p>Sign in to your store</p>
+    <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="you@store.com"></div>
+    <div class="form-group"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••"></div>
+    <button class="btn btn-primary" onclick="login()">Sign In</button>
+    <p style="margin-top:12px;font-size:12px;text-align:center">No account? Contact your manager to create one.</p>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app-content" style="display:none">
 <div class="app">
   <aside class="sidebar">
     <div class="logo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
       Daily Loss
       <span id="conn-status" style="margin-left:auto;font-size:10px;font-weight:400;color:var(--text-secondary)"></span>
+    </div>
+    <div id="auth-section" style="padding:8px 20px 12px;border-bottom:1px solid var(--border);margin-bottom:4px;font-size:12px">
+      <div id="user-email" style="color:var(--text-secondary);font-weight:500;margin-bottom:4px"></div>
+      <button onclick="logout()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:11px;padding:0">Sign out</button>
     </div>
     <button class="nav-item active" data-page="log">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -45,7 +76,7 @@ const FIREBASE_CONFIG = {
       <label>Store:</label>
       <select id="store-select" onchange="switchStore(this.value)"></select>
       <button onclick="addStore()">+ New</button>
-      <button onclick="deleteStore()" style="color:var(--danger)">Remove</button>
+      <span id="login-btn-row" style="margin-left:auto;font-size:12px;color:var(--text-secondary)">Not signed in</span>
     </div>
 
     <!-- Daily Log -->
@@ -70,7 +101,7 @@ const FIREBASE_CONFIG = {
       <div class="card" style="padding:0">
         <div class="table-wrap">
           <table>
-            <thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:90px">Loss Qty</th><th style="width:110px">Reason</th><th style="width:60px">Unit</th></tr></thead>
+            <thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:120px">Loss Qty</th><th style="width:60px">Unit</th></tr></thead>
             <tbody id="log-tbody"></tbody>
           </table>
         </div>
@@ -98,7 +129,7 @@ const FIREBASE_CONFIG = {
         <div class="stats" id="hist-stats"></div>
         <div class="card" style="padding:0">
           <div class="table-wrap">
-            <table><thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:70px">Qty</th><th style="width:100px">Reason</th><th style="width:50px">Unit</th><th style="width:70px">Status</th></tr></thead><tbody id="hist-tbody"></tbody></table>
+            <table><thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:90px">Loss Qty</th><th style="width:60px">Unit</th></tr></thead><tbody id="hist-tbody"></tbody></table>
           </div>
           <div class="empty" id="hist-empty"><p>No losses recorded for this date</p></div>
         </div>
@@ -108,11 +139,8 @@ const FIREBASE_CONFIG = {
           <button onclick="weekPrev()">&larr; Prev Week</button>
           <span id="hist-week-label" style="font-weight:600;min-width:190px;text-align:center"></span>
           <button onclick="weekNext()">Next Week &rarr;</button>
-      </div>
-      <div id="monthly-recap" style="display:none">
-        <div class="stats" id="recap-stats"></div>
-      </div>
-      <div class="card" style="padding:0">
+        </div>
+        <div class="card" style="padding:0">
           <div class="table-wrap">
             <table class="week-table">
               <thead id="week-thead"></thead>
@@ -131,9 +159,7 @@ const FIREBASE_CONFIG = {
       <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
         <input type="text" id="new-prod-name" placeholder="Add new item..." style="flex:1;max-width:240px">
         <select id="new-prod-cat" style="width:130px"></select>
-        <select id="new-prod-unit" style="width:70px">
-          <option value="g">g</option><option value="pcs">pcs</option>
-        </select>
+        <select id="new-prod-unit" style="width:70px"><option value="g">g</option><option value="pcs">pcs</option></select>
         <button class="btn btn-primary" onclick="addProduct()">Add</button>
       </div>
       <div class="card" style="padding:0">
@@ -163,6 +189,7 @@ const FIREBASE_CONFIG = {
     Products
   </button>
 </nav>
+</div>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>

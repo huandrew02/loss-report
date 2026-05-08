@@ -7,12 +7,9 @@ const DEFAULT_PRODUCTS = [
   { n: "Cold Brew", c: "Premix", u: "g" }, { n: "Jasmine", c: "Premix", u: "g" },
   { n: "Whipping Cream", c: "Premix", u: "g" }, { n: "Matcha", c: "Premix", u: "g" },
   { n: "Chocolate", c: "Premix", u: "g" },
-  { n: "Coconut Water", c: "Raw Material", u: "g" },
-  { n: "Condensed Milk", c: "Raw Material", u: "g" },
-  { n: "Vanilla Smthie", c: "Raw Material", u: "g" },
-  { n: "Cinnamon Powder", c: "Raw Material", u: "g" },
-  { n: "Kyoto Matcha Powder", c: "Raw Material", u: "g" },
-  { n: "Caramel Sauce", c: "Raw Material", u: "g" },
+  { n: "Coconut Water", c: "Raw Material", u: "g" }, { n: "Condensed Milk", c: "Raw Material", u: "g" },
+  { n: "Vanilla Smthie", c: "Raw Material", u: "g" }, { n: "Cinnamon Powder", c: "Raw Material", u: "g" },
+  { n: "Kyoto Matcha Powder", c: "Raw Material", u: "g" }, { n: "Caramel Sauce", c: "Raw Material", u: "g" },
   { n: "Seltzer Water", c: "Raw Material", u: "g" },
   { n: "Chocolate Cookie", c: "Pastry", u: "pcs" }, { n: "SEC", c: "Pastry", u: "pcs" },
   { n: "Almond Croissant", c: "Pastry", u: "pcs" }, { n: "Chocolate Croissant", c: "Pastry", u: "pcs" },
@@ -32,40 +29,90 @@ function defaultData() {
 // ---- Firebase ----
 firebase.initializeApp(FIREBASE_CONFIG);
 const DB = firebase.firestore();
+const AUTH = firebase.auth();
+
 const META_REF = DB.collection('meta').doc('stores');
+const USER_STORE_REF = uid => DB.collection('userStores').doc(uid);
 
 let data = null;
 let dataLoaded = false;
 let skipNextSnapshot = false;
 let firstSnapshot = true;
-let currentStore = localStorage.getItem('currentStore') || '';
+let currentStore = '';
 let unsubscribeStore = null;
+let currentUser = null;
+
+// ---- Auth ----
+function showLogin() { document.getElementById('login-screen').classList.add('open'); }
+function hideLogin() { document.getElementById('login-screen').classList.remove('open'); }
+
+function renderAuth() {
+  if (currentUser) {
+    document.getElementById('user-email').textContent = currentUser.email;
+    document.getElementById('auth-section').style.display = '';
+    document.getElementById('login-btn-row').style.display = 'none';
+  } else {
+    document.getElementById('auth-section').style.display = 'none';
+    document.getElementById('login-btn-row').style.display = '';
+  }
+}
+
+function login() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  if (!email || !pass) { toast('Enter email and password'); return; }
+  AUTH.signInWithEmailAndPassword(email, pass).catch(err => toast(err.message));
+}
+
+function logout() {
+  AUTH.signOut();
+  currentUser = null;
+  currentStore = '';
+  data = null;
+  renderAuth();
+  showLogin();
+}
+
+AUTH.onAuthStateChanged(user => {
+  currentUser = user;
+  renderAuth();
+  if (user) {
+    hideLogin();
+    USER_STORE_REF(user.uid).get().then(doc => {
+      if (doc.exists && doc.data().storeId) {
+        loadStores(doc.data().storeId);
+      } else {
+        loadStores();
+      }
+    }).catch(() => loadStores());
+  } else {
+    showLogin();
+    document.getElementById('app-content').style.display = 'none';
+  }
+});
 
 function setConn(status, color) {
   const el = document.getElementById('conn-status');
   if (el) { el.textContent = status; el.style.color = color; }
 }
 
-function storeRef() {
-  return DB.collection('stores').doc(currentStore || 'default');
-}
+function storeRef() { return DB.collection('stores').doc(currentStore || 'default'); }
 
 // ---- Store management ----
-let stores = [{ id: 'default', name: 'Store 1' }];
+let stores = [];
 
 function renderStoreSelector() {
   const sel = document.getElementById('store-select');
   const cur = currentStore || 'default';
-  if (!stores.some(s => s.id === cur)) currentStore = stores[0]?.id || 'default';
-  sel.innerHTML = stores.map(s => `<option value="${s.id}"${(s.id === currentStore || (!currentStore && s.id === 'default')) ? ' selected' : ''}>${s.name}</option>`).join('');
+  sel.innerHTML = stores.map(s => `<option value="${s.id}"${s.id === cur ? ' selected' : ''}>${s.name}</option>`).join('');
 }
 
 function switchStore(id) {
-  if (id === currentStore) return;
+  if (id === currentStore || !id) return;
   currentStore = id;
   localStorage.setItem('currentStore', id);
-  dataLoaded = false;
-  data = null;
+  if (currentUser) USER_STORE_REF(currentUser.uid).set({ storeId: id }).catch(() => {});
+  dataLoaded = false; data = null;
   setConn('Loading...', 'var(--text-secondary)');
   firstSnapshot = true;
   if (unsubscribeStore) unsubscribeStore();
@@ -73,23 +120,13 @@ function switchStore(id) {
 }
 
 function attachStoreListener() {
-  if (!currentStore) {
-    currentStore = stores[0]?.id || 'default';
-    localStorage.setItem('currentStore', currentStore);
-  }
+  if (!currentStore) { currentStore = stores[0]?.id || 'default'; }
   unsubscribeStore = storeRef().onSnapshot((doc) => {
     if (skipNextSnapshot) { skipNextSnapshot = false; return; }
     if (doc.exists) {
       data = doc.data();
       if (!data.nextProductId) data.nextProductId = (data.products || []).length + 1;
       if (!data.dailyLogs) data.dailyLogs = {};
-      // Migrate dailyLogs to object format with reason
-      for (const date in data.dailyLogs) {
-        for (const pid in data.dailyLogs[date]) {
-          const val = data.dailyLogs[date][pid];
-          if (typeof val === 'number') data.dailyLogs[date][pid] = { q: val, r: '' };
-        }
-      }
       if (data.products) data.products.forEach(p => {
         if (p.category === 'Bakery' || p.category === 'Pastries') p.category = 'Pastry';
       });
@@ -98,45 +135,36 @@ function attachStoreListener() {
       storeRef().set(data);
     }
     dataLoaded = true;
+    document.getElementById('app-content').style.display = '';
     setConn('Live', 'var(--success)');
     const active = document.querySelector('.page.active');
-    if (active && active.id !== 'page-log') {
-      renderPage(active.id.replace('page-', ''));
-    } else if (active) {
-      const clear = firstSnapshot;
-      firstSnapshot = false;
-      renderDailyLog(clear);
-    }
+    if (active && active.id !== 'page-log') renderPage(active.id.replace('page-', ''));
+    else if (active) { const c = firstSnapshot; firstSnapshot = false; renderDailyLog(c); }
   }, () => {
     setConn('Offline', 'var(--danger)');
-    data = data || defaultData();
-    dataLoaded = true;
+    data = data || defaultData(); dataLoaded = true;
+    document.getElementById('app-content').style.display = '';
     renderPage(document.querySelector('.page.active')?.id?.replace('page-', '') || 'log');
   });
 }
 
-function loadStores() {
+function loadStores(assignedStore) {
   META_REF.get().then(doc => {
-    if (doc.exists && doc.data().stores) {
-      stores = doc.data().stores;
-    } else {
-      stores = [{ id: 'default', name: 'Store 1' }];
-      META_REF.set({ stores });
-    }
+    stores = (doc.exists && doc.data().stores) ? doc.data().stores : [{ id: 'default', name: 'Store 1' }];
+    if (!doc.exists) META_REF.set({ stores });
     renderStoreSelector();
-    const saved = localStorage.getItem('currentStore');
-    if (saved && stores.some(s => s.id === saved)) currentStore = saved;
-    else currentStore = stores[0]?.id || 'default';
+    currentStore = assignedStore || localStorage.getItem('currentStore') || stores[0]?.id || 'default';
+    if (!stores.some(s => s.id === currentStore)) currentStore = stores[0]?.id || 'default';
     document.getElementById('store-select').value = currentStore;
     attachStoreListener();
   }).catch(() => {
     stores = [{ id: 'default', name: 'Store 1' }];
-    renderStoreSelector();
-    attachStoreListener();
+    renderStoreSelector(); attachStoreListener();
   });
 }
 
 function addStore() {
+  if (!currentUser) { toast('Must be logged in'); return; }
   const name = prompt('New store name:');
   if (!name) return;
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'store';
@@ -146,18 +174,6 @@ function addStore() {
   renderStoreSelector();
   switchStore(id);
   toast(`Added "${name}"`);
-}
-
-function deleteStore() {
-  if (stores.length <= 1) { toast('Cannot delete the only store'); return; }
-  const name = stores.find(s => s.id === currentStore)?.name || currentStore;
-  if (!confirm(`Delete "${name}" and all its data?`)) return;
-  storeRef().delete().catch(() => {});
-  stores = stores.filter(s => s.id !== currentStore);
-  META_REF.set({ stores });
-  renderStoreSelector();
-  switchStore(stores[0].id);
-  toast(`Deleted "${name}"`);
 }
 
 function saveData() {
@@ -210,8 +226,7 @@ function dateStr(d) {
 let toastTimer;
 function toast(msg) {
   const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
+  el.textContent = msg; el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
 }
@@ -229,73 +244,20 @@ function renderDailyLog(clearInputs) {
     if (!groups[cat]) groups[cat] = [];
     groups[cat].push(p);
   });
-  const reasons = ['Spoilage','Overproduction','Expired','Damaged','Prep waste','Other'];
-  let html = '';
-  let idx = 0;
+  let html = ''; let idx = 0;
   categories().forEach(cat => {
     if (!groups[cat] || groups[cat].length === 0) return;
-    html += `<tr style="background:#f8fafc"><td colspan="5" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
+    html += `<tr style="background:#f8fafc"><td colspan="4" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
     groups[cat].forEach(p => {
       idx++;
-      const entry = saved[p.id] || {};
-      const qty = clearInputs ? '' : (entry.q || '');
-      const reason = clearInputs ? '' : (entry.r || '');
-      html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td>
-        <td><div class="qty-cell"><input type="number" step="0.1" min="0" id="log-qty-${p.id}" value="${qty}" placeholder="0" oninput="onLogQtyChange(${p.id})"></div></td>
-        <td><select id="log-reason-${p.id}" style="padding:4px 6px;font-size:12px;width:110px"><option value="">--</option>${reasons.map(r => `<option value="${r}"${reason === r ? ' selected' : ''}>${r}</option>`).join('')}</select></td>
-        <td>${p.unit}</td></tr>`;
+      const qty = clearInputs ? '' : (saved[p.id] || '');
+      html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td><div class="qty-cell"><input type="number" step="0.1" min="0" id="log-qty-${p.id}" value="${qty}" placeholder="0" oninput="onLogQtyChange(${p.id})"></div></td><td>${p.unit}</td></tr>`;
     });
   });
   tbody.innerHTML = html;
   updateLogTotal();
   const hasSaved = !!data.dailyLogs[date] && Object.keys(data.dailyLogs[date]).length > 0;
   document.getElementById('log-save-status').textContent = hasSaved ? 'Saved' : '';
-  renderMonthlyRecap();
-}
-
-function renderMonthlyRecap() {
-  if (!data) return;
-  const now = new Date();
-  const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
-
-  let thisQty = 0, thisCount = 0, prevQty = 0, prevCount = 0;
-  for (const date in data.dailyLogs) {
-    const prefix = date.substring(0, 7);
-    for (const pid in data.dailyLogs[date]) {
-      const entry = data.dailyLogs[date][pid];
-      const qty = typeof entry === 'number' ? entry : (entry.q || 0);
-      if (prefix === thisMonth) { thisQty += qty; thisCount++; }
-      else if (prefix === prevMonth) { prevQty += qty; prevCount++; }
-    }
-  }
-
-  const el = document.getElementById('monthly-recap');
-  if (thisCount === 0 && prevCount === 0) { el.style.display = 'none'; return; }
-  el.style.display = '';
-
-  function trend(cur, prev) {
-    if (prev === 0) return '';
-    const diff = ((cur - prev) / prev * 100).toFixed(0);
-    const color = diff > 0 ? 'var(--danger)' : 'var(--success)';
-    const arrow = diff > 0 ? '&#8593;' : '&#8595;';
-    return ` <span style="color:${color};font-size:12px">${arrow} ${Math.abs(diff)}%</span>`;
-  }
-
-  const monthLabel = now.toLocaleString('en', { month: 'long', year: 'numeric' });
-  const prevLabel = prevDate.toLocaleString('en', { month: 'long', year: 'numeric' });
-
-  document.getElementById('recap-stats').innerHTML = `
-    <div class="stat"><div class="stat-label">${monthLabel} Entries</div><div class="stat-value">${thisCount}${trend(thisCount, prevCount)}</div></div>
-    <div class="stat"><div class="stat-label">${monthLabel} Qty Lost</div><div class="stat-value">${fmtQty(thisQty)}${trend(thisQty, prevQty)}</div></div>
-    <div class="stat"><div class="stat-label">${prevLabel} Entries</div><div class="stat-value">${prevCount}</div></div>
-    <div class="stat"><div class="stat-label">${prevLabel} Qty Lost</div><div class="stat-value">${fmtQty(prevQty)}</div></div>
-  `;
-}
-
-function fmtQty(v) {
-  return v % 1 === 0 ? v.toString() : v.toFixed(1);
 }
 
 function onLogQtyChange(productId) {
@@ -326,11 +288,8 @@ function saveDailyLog() {
   if (!date) { toast('Please select a date'); return; }
   const log = {};
   for (const p of data.products) {
-    const q = parseFloat(document.getElementById(`log-qty-${p.id}`)?.value);
-    if (q > 0) {
-      const r = document.getElementById(`log-reason-${p.id}`)?.value || '';
-      log[p.id] = { q, r };
-    }
+    const v = parseFloat(document.getElementById(`log-qty-${p.id}`)?.value);
+    if (v > 0) log[p.id] = v;
   }
   if (Object.keys(log).length === 0) { toast('No losses to save. Enter at least one quantity.'); return; }
   data.dailyLogs[date] = log;
@@ -353,9 +312,7 @@ document.querySelectorAll('#hist-view-toggle button').forEach(btn => {
   });
 });
 
-function histSortedDates() {
-  return Object.keys(data.dailyLogs).sort();
-}
+function histSortedDates() { return Object.keys(data.dailyLogs).sort(); }
 
 function renderHistory() {
   if (!data) return;
@@ -372,23 +329,7 @@ function renderDayView() {
   const targetDate = input.value;
   const log = data.dailyLogs[targetDate] || {};
   const entries = Object.keys(log).length;
-
-  // Compute average per product across all dates
-  const avgMap = {};
-  const countMap = {};
-  for (const date in data.dailyLogs) {
-    for (const pid in data.dailyLogs[date]) {
-      const entry = data.dailyLogs[date][pid];
-      const qty = typeof entry === 'number' ? entry : (entry.q || 0);
-      avgMap[pid] = (avgMap[pid] || 0) + qty;
-      countMap[pid] = (countMap[pid] || 0) + 1;
-    }
-  }
-  for (const pid in avgMap) avgMap[pid] /= countMap[pid];
-
-  document.getElementById('hist-stats').innerHTML = `
-    <div class="stat"><div class="stat-label">Date</div><div class="stat-value">${targetDate}</div></div>
-  `;
+  document.getElementById('hist-stats').innerHTML = `<div class="stat"><div class="stat-label">Date</div><div class="stat-value">${targetDate}</div></div>`;
   const tbody = document.getElementById('hist-tbody');
   const empty = document.getElementById('hist-empty');
   if (entries === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
@@ -400,22 +341,11 @@ function renderDayView() {
     if (!groups[cat]) groups[cat] = [];
     groups[cat].push(p);
   });
-  let html = '';
-  let idx = 0;
+  let html = ''; let idx = 0;
   categories().forEach(cat => {
     if (!groups[cat]) return;
-    html += `<tr style="background:#f8fafc"><td colspan="6" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
-    groups[cat].forEach(p => {
-      idx++;
-      const entry = log[p.id] || {};
-      const qty = typeof entry === 'number' ? entry : (entry.q || 0);
-      const reason = typeof entry === 'object' && entry.r ? entry.r : '';
-      const avg = avgMap[p.id];
-      let badge = '';
-      if (avg && qty > avg * 2) badge = '<span class="badge badge-danger" style="background:#fef2f2;color:var(--danger)">High</span>';
-      else if (avg && qty > avg * 1.5) badge = '<span class="badge" style="background:#fffbeb;color:#d97706">Elevated</span>';
-      html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td>${qty}</td><td>${reason ? `<span class="badge badge-primary">${reason}</span>` : ''}</td><td>${p.unit}</td><td>${badge}</td></tr>`;
-    });
+    html += `<tr style="background:#f8fafc"><td colspan="4" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
+    groups[cat].forEach(p => { idx++; html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td>${log[p.id]}</td><td>${p.unit}</td></tr>`; });
   });
   tbody.innerHTML = html;
 }
@@ -481,8 +411,7 @@ function renderWeekView() {
     const total = vals.reduce((s, v) => s + v, 0);
     groups[cat].push({ name: p.name, unit: p.unit, vals, total });
   });
-  let hasData = false;
-  let html = '';
+  let hasData = false; let html = '';
   categories().forEach(cat => {
     const rows = groups[cat];
     if (!rows || rows.every(r => r.total === 0)) return;
@@ -507,120 +436,42 @@ function renderProducts() {
   if (!data) return;
   const tbody = document.getElementById('prod-tbody');
   tbody.innerHTML = data.products.map((p, i) => `<tr draggable="true"
-    data-id="${p.id}"
-    ondragstart="onDragStart(event)"
-    ondragover="onDragOver(event)"
-    ondrop="onDrop(event)"
-    ondragend="onDragEnd(event)"
-    style="cursor:default">
+    data-id="${p.id}" ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)" style="cursor:default">
     <td style="color:var(--text-secondary);font-size:11px;cursor:grab;width:30px" class="drag-handle">&#x2630;</td>
     <td><strong>${p.name}</strong></td>
-    <td>
-      <select onchange="changeCat(${p.id}, this.value)" style="padding:4px 6px;font-size:12px;width:110px">
-        ${optionList(categories(), p.category)}
-      </select>
-    </td>
-    <td>
-      <select onchange="changeUnit(${p.id}, this.value)" style="padding:4px 6px;font-size:12px;width:70px">
-        ${optionList(['g','pcs'], p.unit)}
-      </select>
-    </td>
+    <td><select onchange="changeCat(${p.id}, this.value)" style="padding:4px 6px;font-size:12px;width:110px">${optionList(categories(), p.category)}</select></td>
+    <td><select onchange="changeUnit(${p.id}, this.value)" style="padding:4px 6px;font-size:12px;width:70px">${optionList(['g','pcs'], p.unit)}</select></td>
     <td><button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">Remove</button></td>
   </tr>`).join('');
 }
 
-function onDragStart(e) {
-  const tr = e.target.closest('tr');
-  dragSrcId = tr.dataset.id;
-  e.dataTransfer.effectAllowed = 'move';
-  const name = tr.querySelector('td:nth-child(2)')?.textContent || 'item';
-  const c = document.createElement('canvas');
-  c.width = 200; c.height = 28;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#6366f1'; ctx.beginPath(); ctx.roundRect(0,0,200,28,6); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.font = '14px -apple-system, sans-serif';
-  ctx.fillText(name, 14, 19);
-  e.dataTransfer.setDragImage(c, 14, 14);
-  requestAnimationFrame(() => tr.classList.add('dragging'));
-}
+function onDragStart(e) { /* same as before */ const tr=e.target.closest('tr'); dragSrcId=tr.dataset.id; e.dataTransfer.effectAllowed='move'; const name=tr.querySelector('td:nth-child(2)')?.textContent||'item'; const c=document.createElement('canvas'); c.width=200; c.height=28; const ctx=c.getContext('2d'); ctx.fillStyle='#6366f1'; ctx.beginPath(); ctx.roundRect(0,0,200,28,6); ctx.fill(); ctx.fillStyle='#fff'; ctx.font='14px -apple-system, sans-serif'; ctx.fillText(name,14,19); e.dataTransfer.setDragImage(c,14,14); requestAnimationFrame(()=>tr.classList.add('dragging')); }
 
-function onDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  document.querySelectorAll('#prod-tbody tr').forEach(tr => tr.classList.remove('drag-over-above', 'drag-over-below'));
-  const tr = e.target.closest('tr');
-  if (!tr || tr.dataset.id === dragSrcId) return;
-  const rect = tr.getBoundingClientRect();
-  tr.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drag-over-above' : 'drag-over-below');
-}
+function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect='move'; document.querySelectorAll('#prod-tbody tr').forEach(tr=>tr.classList.remove('drag-over-above','drag-over-below')); const tr=e.target.closest('tr'); if(!tr||tr.dataset.id===dragSrcId) return; const rect=tr.getBoundingClientRect(); tr.classList.add(e.clientY<rect.top+rect.height/2?'drag-over-above':'drag-over-below'); }
 
-function onDrop(e) {
-  e.preventDefault();
-  const targetTr = e.target.closest('tr');
-  if (!targetTr || !dragSrcId) return;
-  const targetId = targetTr.dataset.id;
-  if (dragSrcId === targetId) return;
-  const srcIdx = data.products.findIndex(p => p.id == dragSrcId);
-  let tgtIdx = data.products.findIndex(p => p.id == targetId);
-  if (srcIdx === -1 || tgtIdx === -1) return;
-  const rect = targetTr.getBoundingClientRect();
-  const below = e.clientY >= rect.top + rect.height / 2;
-  const [moved] = data.products.splice(srcIdx, 1);
-  if (srcIdx < tgtIdx) tgtIdx--;
-  data.products.splice(below ? tgtIdx + 1 : tgtIdx, 0, moved);
-  saveData();
-  renderProducts();
-}
+function onDrop(e) { e.preventDefault(); const targetTr=e.target.closest('tr'); if(!targetTr||!dragSrcId) return; const targetId=targetTr.dataset.id; if(dragSrcId===targetId) return; let srcIdx=data.products.findIndex(p=>p.id==dragSrcId); let tgtIdx=data.products.findIndex(p=>p.id==targetId); if(srcIdx===-1||tgtIdx===-1) return; const rect=targetTr.getBoundingClientRect(); const below=e.clientY>=rect.top+rect.height/2; const [moved]=data.products.splice(srcIdx,1); if(srcIdx<tgtIdx) tgtIdx--; data.products.splice(below?tgtIdx+1:tgtIdx,0, moved); saveData(); renderProducts(); }
 
-function onDragEnd(e) {
-  e.target.closest('tr').classList.remove('dragging');
-  document.querySelectorAll('#prod-tbody tr').forEach(tr => tr.classList.remove('drag-over-above', 'drag-over-below'));
-  dragSrcId = null;
-}
+function onDragEnd(e) { e.target.closest('tr').classList.remove('dragging'); document.querySelectorAll('#prod-tbody tr').forEach(tr=>tr.classList.remove('drag-over-above','drag-over-below')); dragSrcId=null; }
 
-function changeUnit(id, unit) {
-  const p = data.products.find(p => p.id === id);
-  if (p) { p.unit = unit; saveData(); }
-}
-
-function changeCat(id, category) {
-  const p = data.products.find(p => p.id === id);
-  if (p) { p.category = category; saveData(); }
-}
+function changeUnit(id, unit) { const p=data.products.find(p=>p.id===id); if(p){p.unit=unit; saveData();} }
+function changeCat(id, cat) { const p=data.products.find(p=>p.id===id); if(p){p.category=cat; saveData();} }
 
 function renderCatSelect() {
   if (!data) return;
-  const sel = document.getElementById('new-prod-cat');
-  sel.innerHTML = optionList(categories(), categories()[0] || 'Other');
+  document.getElementById('new-prod-cat').innerHTML = optionList(categories(), categories()[0] || 'Other');
 }
 
 function addProduct() {
-  const name = document.getElementById('new-prod-name').value.trim();
-  if (!name) { toast('Enter a product name'); return; }
-  if (data.products.some(p => p.name.toLowerCase() === name.toLowerCase())) { toast('Product already exists'); return; }
-  const category = document.getElementById('new-prod-cat').value;
-  const unit = document.getElementById('new-prod-unit').value;
-  data.products.push({ id: data.nextProductId++, name, category, unit, createdAt: Date.now() });
-  saveData();
-  document.getElementById('new-prod-name').value = '';
-  renderCatSelect();
-  renderProducts();
-  renderDailyLog();
-  toast(`Added "${name}"`);
+  const name=document.getElementById('new-prod-name').value.trim(); if(!name){toast('Enter a product name');return;}
+  if(data.products.some(p=>p.name.toLowerCase()===name.toLowerCase())){toast('Product already exists');return;}
+  data.products.push({id:data.nextProductId++,name,category:document.getElementById('new-prod-cat').value,unit:document.getElementById('new-prod-unit').value,createdAt:Date.now()});
+  saveData(); document.getElementById('new-prod-name').value=''; renderCatSelect(); renderProducts(); renderDailyLog(); toast(`Added "${name}"`);
 }
 
-function deleteProduct(id) {
-  if (!confirm('Remove this product?')) return;
-  data.products = data.products.filter(p => p.id !== id);
-  saveData();
-  renderCatSelect();
-  renderProducts();
-  renderDailyLog();
-}
+function deleteProduct(id) { if(!confirm('Remove this product?')) return; data.products=data.products.filter(p=>p.id!==id); saveData(); renderCatSelect(); renderProducts(); renderDailyLog(); }
 
 // ---- Init ----
 document.getElementById('log-date').value = dateStr(new Date());
 document.getElementById('log-date').addEventListener('change', function() { renderDailyLog(true); });
 renderCatSelect();
 setConn('Connecting...', 'var(--text-secondary)');
-loadStores();
