@@ -12,7 +12,7 @@ const DEFAULT_PRODUCTS = [
   { n: "Vanilla Smthie", c: "Raw Material", u: "g" },
   { n: "Cinnamon Powder", c: "Raw Material", u: "g" },
   { n: "Kyoto Matcha Powder", c: "Raw Material", u: "g" },
-  { n: "Caramel sauce", c: "Raw Material", u: "g" },
+  { n: "Caramel Sauce", c: "Raw Material", u: "g" },
   { n: "Seltzer Water", c: "Raw Material", u: "g" },
   { n: "Chocolate Cookie", c: "Pastry", u: "pcs" }, { n: "SEC", c: "Pastry", u: "pcs" },
   { n: "Almond Croissant", c: "Pastry", u: "pcs" }, { n: "Chocolate Croissant", c: "Pastry", u: "pcs" },
