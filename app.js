@@ -1,27 +1,29 @@
 // ---- Default data ----
 const DEFAULT_PRODUCTS = [
-  { n: "2%", c: "Milks" }, { n: "Oat", c: "Milks" }, { n: "Almond", c: "Milks" }, { n: "Coco", c: "Milks" },
-  { n: "Skim", c: "Milks" }, { n: "Cream", c: "Milks" }, { n: "Velvet", c: "Milks" }, { n: "Whole", c: "Milks" },
-  { n: "Cold brew", c: "Raw Material" }, { n: "Coconut water", c: "Raw Material" }, { n: "Jasmine", c: "Raw Material" },
-  { n: "Green coffee", c: "Raw Material" },
-  { n: "Mango puree", c: "Purees & Juices" }, { n: "Grapefruit pulp", c: "Purees & Juices" },
-  { n: "Pumpkin puree", c: "Purees & Juices" }, { n: "Purple juice", c: "Purees & Juices" },
-  { n: "Orange juice", c: "Purees & Juices" },
-  { n: "Chia seeds", c: "Raw Material" },
-  { n: "Whipping cream premix", c: "Premixes" }, { n: "Tiramisu cold foam", c: "Premixes" },
-  { n: "Condensed milk", c: "Premixes" },
-  { n: "Chocolate cookie", c: "Pastry" }, { n: "SEC", c: "Pastry" },
-  { n: "Almond croissant", c: "Pastry" }, { n: "Chocolate croissant", c: "Pastry" },
-  { n: "Chocolate muffin", c: "Pastry" },
-  { n: "Matcha", c: "Other" }, { n: "Chocolate", c: "Other" }, { n: "Chocolate chips", c: "Other" },
-  { n: "Caramel sauce", c: "Other" }
+  { n: "2%", c: "Milk", u: "g" }, { n: "Oat", c: "Milk", u: "g" }, { n: "Almond", c: "Milk", u: "g" },
+  { n: "Barista Coconut", c: "Milk", u: "g" }, { n: "Skim", c: "Milk", u: "g" },
+  { n: "Heavy Whipping Cream", c: "Milk", u: "g" }, { n: "Whole", c: "Milk", u: "g" },
+  { n: "Velvet", c: "Premix", u: "g" },
+  { n: "Cold Brew", c: "Premix", u: "g" }, { n: "Jasmine", c: "Premix", u: "g" },
+  { n: "Whipping Cream", c: "Premix", u: "g" }, { n: "Matcha", c: "Premix", u: "g" },
+  { n: "Chocolate", c: "Premix", u: "g" },
+  { n: "Coconut Water", c: "Raw Material", u: "g" },
+  { n: "Condensed Milk", c: "Raw Material", u: "g" },
+  { n: "Vanilla Smthie", c: "Raw Material", u: "g" },
+  { n: "Cinnamon Powder", c: "Raw Material", u: "g" },
+  { n: "Kyoto Matcha Powder", c: "Raw Material", u: "g" },
+  { n: "Caramel sauce", c: "Raw Material", u: "g" },
+  { n: "Seltzer Water", c: "Raw Material", u: "g" },
+  { n: "Chocolate Cookie", c: "Pastry", u: "pcs" }, { n: "SEC", c: "Pastry", u: "pcs" },
+  { n: "Almond Croissant", c: "Pastry", u: "pcs" }, { n: "Chocolate Croissant", c: "Pastry", u: "pcs" },
+  { n: "Chocolate Muffin", c: "Pastry", u: "pcs" }, { n: "Grilled Cheese", c: "Pastry", u: "pcs" },
 ];
 
-const CATEGORIES = ['Pastry', 'Milks', 'Raw Material', 'Purees & Juices', 'Other', 'Premixes'];
+const CATEGORIES = ['Pastry', 'Milk', 'Premix', 'Raw Material'];
 
 function defaultData() {
   return {
-    products: DEFAULT_PRODUCTS.map((p, i) => ({ id: i + 1, name: p.n, category: p.c, unit: 'g', createdAt: Date.now() })),
+    products: DEFAULT_PRODUCTS.map((p, i) => ({ id: i + 1, name: p.n, category: p.c, unit: p.u || 'g', createdAt: Date.now() })),
     dailyLogs: {},
     nextProductId: DEFAULT_PRODUCTS.length + 1,
   };
