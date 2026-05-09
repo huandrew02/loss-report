@@ -34,7 +34,7 @@ const AUTH = firebase.auth();
 let data = null;
 let dataLoaded = false;
 let skipNextSnapshot = false;
-let firstSnapshot = true;
+let firstSnapshot = false;
 let currentStore = '';
 let unsubscribeStore = null;
 let currentUser = null;
@@ -451,6 +451,6 @@ function deleteProduct(id) { if(!confirm('Remove this product?')) return; data.p
 
 // ---- Init ----
 document.getElementById('log-date').value = dateStr(new Date());
-document.getElementById('log-date').addEventListener('change', function() { renderDailyLog(true); });
+document.getElementById('log-date').addEventListener('change', function() { renderDailyLog(false); });
 renderCatSelect();
 setConn('Connecting...', 'var(--text-secondary)');
