@@ -373,9 +373,8 @@ let weekOffset = 0;
 
 function getWeekStart(date) {
   const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.getFullYear(), d.getMonth(), diff);
+  d.setDate(d.getDate() - d.getDay());
+  return d;
 }
 
 function addDays(d, n) {
@@ -388,7 +387,7 @@ function renderWeekView() {
   const today = new Date();
   const base = addDays(today, weekOffset * 7);
   const weekStart = getWeekStart(base);
-  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const dates = dayLabels.map((_, i) => dateStr(addDays(weekStart, i)));
   document.getElementById('hist-week-label').textContent = `${dates[0]} — ${dates[6]}`;
   const thead = document.getElementById('week-thead');
