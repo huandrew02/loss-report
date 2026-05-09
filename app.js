@@ -392,7 +392,7 @@ function renderWeekView() {
   const dates = dayLabels.map((_, i) => dateStr(addDays(weekStart, i)));
   document.getElementById('hist-week-label').textContent = `${dates[0]} — ${dates[6]}`;
   const thead = document.getElementById('week-thead');
-  thead.innerHTML = `<tr><th>Item</th>${dayLabels.map(d => `<th>${d}</th>`).join('')}<th class="col-total">Total</th><th>Unit</th></tr>`;
+  thead.innerHTML = `<tr><th>Item</th>${dayLabels.map((d, i) => `<th>${d}<br><span style="font-weight:400;font-size:10px">${dates[i].slice(-2)}</span></th>`).join('')}<th class="col-total">Total</th><th>Unit</th></tr>`;
   const tbody = document.getElementById('week-tbody');
   const empty = document.getElementById('week-empty');
   const groups = {};
