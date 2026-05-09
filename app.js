@@ -293,6 +293,15 @@ function saveDailyLog() {
 // ---- History ----
 let histView = 'week';
 
+document.querySelectorAll('#hist-view-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#hist-view-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    histView = btn.dataset.view;
+    renderHistory();
+  });
+});
+
 function histSortedDates() { return Object.keys(data.dailyLogs).sort(); }
 
 function renderHistory() {
