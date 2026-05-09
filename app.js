@@ -183,13 +183,13 @@ function navigate(page) {
   document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.remove('active'));
   document.getElementById(`page-${page}`).classList.add('active');
   document.querySelectorAll(`.nav-item[data-page="${page}"]`).forEach(n => n.classList.add('active'));
-  if (page === 'log') renderDailyLog(true);
+  if (page === 'log') renderDailyLog(false);
   if (page === 'history') renderHistory();
   if (page === 'products') { renderCatSelect(); renderProducts(); }
 }
 
 function renderPage(page) {
-  if (page === 'log') renderDailyLog(true);
+  if (page === 'log') renderDailyLog(false);
   else if (page === 'history') renderHistory();
   else if (page === 'products') { renderCatSelect(); renderProducts(); }
 }
@@ -277,16 +277,17 @@ function updateLogTotal() {
 function saveDailyLog() {
   const date = document.getElementById('log-date').value;
   if (!date) { toast('Please select a date'); return; }
-  const log = {};
+  // Merge with existing saved data
+  const existing = data.dailyLogs[date] || {};
   for (const p of data.products) {
     const v = parseFloat(document.getElementById(`log-qty-${p.id}`)?.value);
-    if (v > 0) log[p.id] = v;
+    if (v > 0) existing[p.id] = v;
+    else delete existing[p.id];
   }
-  if (Object.keys(log).length === 0) { toast('No losses to save. Enter at least one quantity.'); return; }
-  data.dailyLogs[date] = log;
+  if (Object.keys(existing).length === 0) { toast('No losses to save'); return; }
+  data.dailyLogs[date] = existing;
   saveData();
-  renderDailyLog(true);
-  toast(`Saved ${Object.keys(log).length} items for ${date}`);
+  toast(`Saved for ${date}`);
 }
 
 // ---- History ----
