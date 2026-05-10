@@ -390,8 +390,8 @@ function renderChart() {
     const items = data.products.filter(p => log[p.id]).map(p => ({ name: p.name, qty: log[p.id] })).sort((a, b) => b.qty - a.qty).slice(0, 15);
     chartInstance = new Chart(ctx, {
       type: 'bar',
-      data: { labels: items.map(i => i.name), datasets: [{ label: 'Loss Quantity', data: items.map(i => i.qty), backgroundColor: '#6366f1', borderRadius: 4 }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { ticks: { maxRotation: 45, font: { size: 10 } } } } }
+      data: { labels: items.map(i => i.name), datasets: [{ label: '', data: items.map(i => i.qty), backgroundColor: '#6366f1', borderRadius: 3, barThickness: 14 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.x + ' loss' } } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } } }
     });
   } else {
     // Week view - total per day
