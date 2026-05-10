@@ -156,8 +156,11 @@
         </div>
       </div>
       <div class="card" id="chart-card" style="display:none">
-        <div class="card-header"><h2>Loss Chart</h2></div>
-        <canvas id="loss-chart" style="max-height:180px"></canvas>
+        <div class="card-header"><h2>Loss Breakdown</h2></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div><h3 style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">Per Item</h3><canvas id="bar-chart" style="max-height:180px"></canvas></div>
+          <div><h3 style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">Trend</h3><canvas id="line-chart" style="max-height:180px"></canvas></div>
+        </div>
       </div>
     </section>
 

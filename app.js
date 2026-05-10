@@ -372,12 +372,13 @@ function deleteHistory() {
 // Week View
 let weekOffset = 0;
 let chartInstance = null;
+let chartInstance2 = null;
 
 function renderChart() {
   if (!data) return;
   const el = document.getElementById('chart-card');
   if (chartInstance) chartInstance.destroy();
-  const ctx = document.getElementById('loss-chart').getContext('2d');
+  if (chartInstance2) chartInstance2.destroy();
   const dayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
   if (histView === 'day') {
@@ -387,14 +388,27 @@ function renderChart() {
     const entries = Object.keys(log).length;
     if (entries < 2) { el.style.display = 'none'; return; }
     el.style.display = '';
+
+    // Bar chart: items vs loss
     const items = data.products.filter(p => log[p.id]).map(p => ({ name: p.name, qty: log[p.id] })).sort((a, b) => b.qty - a.qty).slice(0, 15);
-    chartInstance = new Chart(ctx, {
+    chartInstance = new Chart(document.getElementById('bar-chart'), {
       type: 'bar',
       data: { labels: items.map(i => i.name), datasets: [{ label: '', data: items.map(i => i.qty), backgroundColor: '#6366f1', borderRadius: 3, barThickness: 14 }] },
-      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.x + ' loss' } } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } } }
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } } }
     });
+
+    // Line chart: last 7 days trend
+    const sorted = Object.keys(data.dailyLogs).sort().reverse();
+    const recent = sorted.slice(0, 7).reverse();
+    const totals = recent.map(d => { let s = 0; for (const pid in data.dailyLogs[d]) s += data.dailyLogs[d][pid]; return s; });
+    chartInstance2 = new Chart(document.getElementById('line-chart'), {
+      type: 'line',
+      data: { labels: recent.map(d => d.slice(-2) + '/' + d.slice(5,7)), datasets: [{ label: '', data: totals, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', fill: true, tension: 0.3, pointRadius: 3 }] },
+      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } } }
+    });
+
   } else {
-    // Week view - total per day
+    // Week view
     const weekLabel = document.getElementById('hist-week-label')?.textContent;
     if (!weekLabel) return;
     const parts = weekLabel.split(' — ');
@@ -403,15 +417,65 @@ function renderChart() {
     const allDates = Object.keys(data.dailyLogs).filter(d => d >= start && d <= end).sort();
     if (allDates.length === 0) { el.style.display = 'none'; return; }
     el.style.display = '';
-    const totals = allDates.map(d => {
-      let sum = 0;
-      for (const pid in data.dailyLogs[d]) sum += data.dailyLogs[d][pid];
-      return sum;
+
+    // Collect per-item data across the week
+    const itemWeekTotals = {};
+    const itemDaily = {};
+    for (const date of allDates) {
+      for (const pid in data.dailyLogs[date]) {
+        const qty = data.dailyLogs[date][pid];
+        itemWeekTotals[pid] = (itemWeekTotals[pid] || 0) + qty;
+        if (!itemDaily[pid]) itemDaily[pid] = {};
+        itemDaily[pid][date] = (itemDaily[pid][date] || 0) + qty;
+      }
+    }
+
+    // Get top items by total loss, group rest as "Other"
+    const sortedItems = Object.entries(itemWeekTotals).sort((a, b) => b[1] - a[1]);
+    const topN = sortedItems.slice(0, 6);
+    const otherTotal = sortedItems.slice(6).reduce((s, [, v]) => s + v, 0);
+
+    const topEntries = topN.map(([pid]) => {
+      const p = data.products.find(x => x.id == pid);
+      return { pid, name: p ? p.name : 'Unknown' };
     });
-    chartInstance = new Chart(ctx, {
+    if (otherTotal > 0) topEntries.push({ pid: null, name: 'Other' });
+
+    const colors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4','#94a3b8'];
+    const dateLabels = allDates.map(d => { const dt = new Date(d + 'T12:00:00'); return dayLabels[dt.getDay()] + ' ' + d.slice(-2); });
+
+    const datasets = topEntries.map((entry, i) => {
+      const data = allDates.map(d => {
+        if (!entry.pid) { // "Other"
+          let sum = 0;
+          for (const [pid, qty] of sortedItems.slice(6)) {
+            if (itemDaily[pid] && itemDaily[pid][d]) sum += itemDaily[pid][d];
+          }
+          return sum || 0;
+        }
+        return (itemDaily[entry.pid] && itemDaily[entry.pid][d]) || 0;
+      });
+      return { label: entry.name, data, backgroundColor: colors[i % colors.length], borderRadius: 2, barThickness: 16 };
+    });
+
+    chartInstance = new Chart(document.getElementById('bar-chart'), {
       type: 'bar',
-      data: { labels: allDates.map(d => { const dt = new Date(d + 'T12:00:00'); return dayLabels[dt.getDay()] + ' ' + d.slice(-2); }), datasets: [{ label: 'Total Loss', data: totals, backgroundColor: '#6366f1', borderRadius: 4 }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+      data: { labels: dateLabels, datasets },
+      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } }, tooltip: { mode: 'index', intersect: false } }, scales: { x: { stacked: false, ticks: { font: { size: 9 } } }, y: { beginAtZero: true, ticks: { font: { size: 10 } } } } }
+    });
+
+    // Line chart: top items as lines across the week
+    const lineColors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4'];
+    const lineDatasets = topN.slice(0, 6).map(([pid], i) => {
+      const p = data.products.find(x => x.id == pid);
+      const itemData = allDates.map(d => (itemDaily[pid] && itemDaily[pid][d]) || 0);
+      return { label: p ? p.name : 'Item', data: itemData, borderColor: lineColors[i], backgroundColor: lineColors[i] + '22', tension: 0.3, pointRadius: 3 };
+    });
+
+    chartInstance2 = new Chart(document.getElementById('line-chart'), {
+      type: 'line',
+      data: { labels: dateLabels, datasets: lineDatasets },
+      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 9 } } } } }
     });
   }
 }
