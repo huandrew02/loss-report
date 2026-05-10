@@ -340,6 +340,7 @@ function renderDayView() {
     groups[cat].forEach(p => { idx++; html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td>${log[p.id]}</td><td>${p.unit}</td></tr>`; });
   });
   tbody.innerHTML = html;
+  renderChart();
 }
 
 function histPrev() {
@@ -370,6 +371,50 @@ function deleteHistory() {
 
 // Week View
 let weekOffset = 0;
+let chartInstance = null;
+
+function renderChart() {
+  if (!data) return;
+  const el = document.getElementById('chart-card');
+  if (chartInstance) chartInstance.destroy();
+  const ctx = document.getElementById('loss-chart').getContext('2d');
+  const dayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  if (histView === 'day') {
+    const targetDate = document.getElementById('hist-date')?.value;
+    if (!targetDate) return;
+    const log = data.dailyLogs[targetDate] || {};
+    const entries = Object.keys(log).length;
+    if (entries < 2) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    const items = data.products.filter(p => log[p.id]).map(p => ({ name: p.name, qty: log[p.id] })).sort((a, b) => b.qty - a.qty).slice(0, 15);
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: items.map(i => i.name), datasets: [{ label: 'Loss Quantity', data: items.map(i => i.qty), backgroundColor: '#6366f1', borderRadius: 4 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { ticks: { maxRotation: 45, font: { size: 10 } } } } }
+    });
+  } else {
+    // Week view - total per day
+    const weekLabel = document.getElementById('hist-week-label')?.textContent;
+    if (!weekLabel) return;
+    const parts = weekLabel.split(' — ');
+    if (parts.length !== 2) return;
+    const start = parts[0], end = parts[1];
+    const allDates = Object.keys(data.dailyLogs).filter(d => d >= start && d <= end).sort();
+    if (allDates.length === 0) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    const totals = allDates.map(d => {
+      let sum = 0;
+      for (const pid in data.dailyLogs[d]) sum += data.dailyLogs[d][pid];
+      return sum;
+    });
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: allDates.map(d => { const dt = new Date(d + 'T12:00:00'); return dayLabels[dt.getDay()] + ' ' + d.slice(-2); }), datasets: [{ label: 'Total Loss', data: totals, backgroundColor: '#6366f1', borderRadius: 4 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+  }
+}
 
 function getWeekStart(date) {
   const d = new Date(date);
@@ -415,6 +460,7 @@ function renderWeekView() {
   if (!hasData) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
   empty.style.display = 'none';
   tbody.innerHTML = html;
+  renderChart();
 }
 
 function weekPrev() { weekOffset--; renderWeekView(); }

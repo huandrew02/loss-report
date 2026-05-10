@@ -8,6 +8,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <!-- config.js is created by GitHub Actions from the FIREBASE_CONFIG secret -->
 <script src="config.js"></script>
 <style>
@@ -153,6 +154,10 @@
           </div>
           <div class="empty" id="week-empty"><p>No losses in this week</p></div>
         </div>
+      </div>
+      <div class="card" id="chart-card" style="display:none">
+        <div class="card-header"><h2>Loss Chart</h2></div>
+        <canvas id="loss-chart" height="200"></canvas>
       </div>
     </section>
 
