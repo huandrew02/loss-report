@@ -391,7 +391,7 @@ function renderChart() {
     chartInstance = new Chart(ctx, {
       type: 'bar',
       data: { labels: items.map(i => i.name), datasets: [{ label: '', data: items.map(i => i.qty), backgroundColor: '#6366f1', borderRadius: 3, barThickness: 14 }] },
-      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.x + ' loss' } } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } } }
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.x + ' loss' } } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } } }
     });
   } else {
     // Week view - total per day
