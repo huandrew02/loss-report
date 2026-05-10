@@ -81,6 +81,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M12 22V12"/><path d="M3.3 7L12 12l8.7-5"/></svg>
       Products
     </button>
+    <button class="nav-item" data-page="charts">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      Charts
+    </button>
   </aside>
 
   <main class="main">
@@ -155,13 +159,37 @@
           <div class="empty" id="week-empty"><p>No losses in this week</p></div>
         </div>
       </div>
-      <div class="card" id="chart-card" style="display:none">
-        <div class="card-header"><h2>Loss Breakdown</h2></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          <div><h3 style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">Per Item</h3><canvas id="bar-chart" style="max-height:180px"></canvas></div>
-          <div><h3 style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">Trend</h3><canvas id="line-chart" style="max-height:180px"></canvas></div>
+    </section>
+
+    <!-- Charts -->
+    <section class="page" id="page-charts">
+      <h1>Charts</h1>
+      <p class="subtitle">Visual loss analysis</p>
+      <div class="view-toggle" id="chart-view-toggle">
+        <button data-view="day">Day</button>
+        <button class="active" data-view="week">Week</button>
+      </div>
+      <div id="chart-day-controls">
+        <div class="date-nav">
+          <button onclick="chartPrev()">&larr; Prev</button>
+          <input type="date" id="chart-date" onchange="renderCharts()" style="width:170px;text-align:center;font-weight:600">
+          <button onclick="chartNext()">Next &rarr;</button>
         </div>
       </div>
+      <div id="chart-week-controls">
+        <div class="date-nav">
+          <button onclick="chartWeekPrev()">&larr; Prev Week</button>
+          <span id="chart-week-label" style="font-weight:600;min-width:190px;text-align:center"></span>
+          <button onclick="chartWeekNext()">Next Week &rarr;</button>
+        </div>
+      </div>
+      <div class="card" id="charts-card" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div><h3 style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">Per Item</h3><canvas id="bar-chart" style="max-height:300px"></canvas></div>
+          <div><h3 style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">Trend</h3><canvas id="line-chart" style="max-height:300px"></canvas></div>
+        </div>
+      </div>
+      <div class="empty" id="charts-empty"><p>Not enough data for charts</p></div>
     </section>
 
     <!-- Products -->
@@ -199,6 +227,10 @@
   <button class="nav-item" data-page="products">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M12 22V12"/><path d="M3.3 7L12 12l8.7-5"/></svg>
     Products
+  </button>
+  <button class="nav-item" data-page="charts">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+    Charts
   </button>
   <button class="nav-item" onclick="logout()" style="color:var(--danger)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
