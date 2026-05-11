@@ -428,6 +428,7 @@ function renderChart() {
   });
 
   // Line chart: top 6 items as individual lines
+  const top6 = sortedItems.slice(0, 6);
   const lineColors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4'];
   const lineDatasets = top6.map((item, i) => ({
     label: item.name,
@@ -439,7 +440,7 @@ function renderChart() {
   chartInstance2 = new Chart(document.getElementById('line-chart'), {
     type: 'line',
     data: { labels: dateLabels, datasets: lineDatasets },
-    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } } }
+    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } }, tooltip: { mode: 'index', intersect: false } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } } }
   });
 }
 function chartPrev() { const i=document.getElementById('chart-date'); const s=Object.keys(data.dailyLogs).sort(); const c=i.value||s[s.length-1]; const x=s.indexOf(c); if(x>0){i.value=s[x-1];renderCharts();} }
