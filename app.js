@@ -435,12 +435,19 @@ function renderChart() {
     }
   });
 
-  // Line chart: single total line
-  const totals = allDates.map(d => { let s = 0; for (const pid in data.dailyLogs[d]) s += data.dailyLogs[d][pid]; return s; });
+  // Line chart: top 6 items as individual lines
+  const lineColors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4'];
+  const lineDatasets = top6.map((item, i) => ({
+    label: item.name,
+    data: allDates.map(d => itemDaily[item.pid][d] || 0),
+    borderColor: lineColors[i],
+    backgroundColor: lineColors[i] + '22',
+    tension: 0.3, pointRadius: 3
+  }));
   chartInstance2 = new Chart(document.getElementById('line-chart'), {
     type: 'line',
-    data: { labels: dateLabels, datasets: [{ label: 'Total Loss', data: totals, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: '#6366f1' }] },
-    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.y + ' total' } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } } }
+    data: { labels: dateLabels, datasets: lineDatasets },
+    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } } }
   });
 }
 function chartPrev() { const i=document.getElementById('chart-date'); const s=Object.keys(data.dailyLogs).sort(); const c=i.value||s[s.length-1]; const x=s.indexOf(c); if(x>0){i.value=s[x-1];renderCharts();} }
