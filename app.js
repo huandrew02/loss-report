@@ -406,20 +406,12 @@ function renderChart() {
     return { pid, name: p ? p.name : 'Unknown', total };
   }).sort((a, b) => b.total - a.total);
 
-  const top6 = sortedItems.slice(0, 6);
-  const otherItems = sortedItems.slice(6);
-  const colors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4','#94a3b8'];
+  const colors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4','#94a3b8','#8b5cf6','#14b8a6','#f97316','#e11d48','#84cc16'];
   const dateLabels = allDates.map(d => { const dt = new Date(d + 'T12:00:00'); return dayLabels[dt.getDay()] + ' ' + d.slice(-2); });
 
-  // Top 6 items + "Other"
-  const chartEntries = top6.map(item => item);
-  if (otherItems.length > 0) {
-    chartEntries.push({ pid: null, name: 'Other', total: otherItems.reduce((s, i) => s + i.total, 0) });
-  }
-
-  const datasets = chartEntries.map((item, i) => ({
+  const datasets = sortedItems.map((item, i) => ({
     label: item.name,
-    data: allDates.map(d => item.pid ? (itemDaily[item.pid][d] || 0) : otherItems.reduce((s, oi) => s + (itemDaily[oi.pid][d] || 0), 0)),
+    data: allDates.map(d => itemDaily[item.pid][d] || 0),
     backgroundColor: colors[i % colors.length],
     borderRadius: 0,
     barThickness: 28
