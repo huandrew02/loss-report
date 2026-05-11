@@ -23,6 +23,7 @@ function defaultData() {
     products: DEFAULT_PRODUCTS.map((p, i) => ({ id: i + 1, name: p.n, category: p.c, unit: p.u || 'g', createdAt: Date.now() })),
     dailyLogs: {},
     nextProductId: DEFAULT_PRODUCTS.length + 1,
+    config: { mode: 'loss-only' },
   };
 }
 
@@ -146,6 +147,7 @@ function loadStore(storeId) {
       data = doc.data();
       if (!data.nextProductId) data.nextProductId = (data.products || []).length + 1;
       if (!data.dailyLogs) data.dailyLogs = {};
+      if (!data.config) data.config = { mode: 'loss-only' };
       if (data.products) data.products.forEach(p => {
         if (p.category === 'Bakery' || p.category === 'Pastries') p.category = 'Pastry';
       });
@@ -222,9 +224,29 @@ function toast(msg) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
 }
 
+// ---- Mode toggle ----
+function isLossOnly() { return data && data.config && data.config.mode === 'loss-only'; }
+
+function toggleMode() {
+  if (!data) return;
+  data.config.mode = isLossOnly() ? 'profit-loss' : 'loss-only';
+  saveData();
+  document.getElementById('mode-toggle').textContent = isLossOnly() ? 'Loss Only' : '+/- Mode';
+  document.getElementById('log-subtitle').textContent = isLossOnly() ? 'Enter loss quantities for each item' : 'Enter profit (+) or loss (-) for each item';
+  document.getElementById('hist-subtitle').textContent = isLossOnly() ? 'View past loss records' : 'View past profit/loss records';
+  document.getElementById('log-qty-header').textContent = isLossOnly() ? 'Loss Qty' : 'Qty (+/-)';
+  document.getElementById('hist-qty-header').textContent = isLossOnly() ? 'Loss Qty' : 'Qty (+/-)';
+  renderDailyLog(false);
+  toast('Switched to ' + (isLossOnly() ? 'Loss Only mode (just enter loss numbers)' : '+/- Mode (use + for profit, - for loss)'));
+}
+
 // ---- Daily Log ----
 function renderDailyLog(clearInputs) {
   if (!data) return;
+  const modeBtn = document.getElementById('mode-toggle');
+  if (modeBtn) modeBtn.textContent = isLossOnly() ? 'Loss Only' : '+/- Mode';
+  document.getElementById('log-subtitle').textContent = isLossOnly() ? 'Enter loss quantities for each item' : 'Enter profit (+) or loss (-) for each item';
+  document.getElementById('log-qty-header').textContent = isLossOnly() ? 'Loss Qty' : 'Qty (+/-)';
   const date = document.getElementById('log-date').value || dateStr(new Date());
   document.getElementById('log-date').value = date;
   const saved = data.dailyLogs[date] || {};
@@ -242,10 +264,17 @@ function renderDailyLog(clearInputs) {
     groups[cat].forEach(p => {
       idx++;
       const qty = clearInputs ? '' : (saved[p.id] || '');
-      html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td><div class="qty-cell"><input type="number" step="0.1" min="0" id="log-qty-${p.id}" value="${qty}" placeholder="0" oninput="onLogQtyChange(${p.id})"></div></td><td>${p.unit}</td></tr>`;
+      const minAttr = isLossOnly() ? 'min="0"' : '';
+      html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td><div class="qty-cell"><input type="number" step="0.1" ${minAttr} id="log-qty-${p.id}" value="${qty}" placeholder="0" oninput="onLogQtyChange(${p.id})"></div></td><td>${p.unit}</td></tr>`;
     });
   });
   tbody.innerHTML = html;
+  if (!clearInputs) {
+    for (const pid in saved) {
+      const input = document.getElementById(`log-qty-${pid}`);
+      if (input) onLogQtyChange(parseInt(pid));
+    }
+  }
   updateLogTotal();
   const hasSaved = !!data.dailyLogs[date] && Object.keys(data.dailyLogs[date]).length > 0;
   document.getElementById('log-save-status').textContent = hasSaved ? 'Saved' : '';
@@ -254,24 +283,45 @@ function renderDailyLog(clearInputs) {
 function onLogQtyChange(productId) {
   const input = document.getElementById(`log-qty-${productId}`);
   const val = parseFloat(input.value);
-  const chk = input.parentElement.querySelector('.qty-saved');
-  if (val > 0) {
-    input.style.borderColor = 'var(--success)';
-    if (!chk) input.parentElement.insertAdjacentHTML('beforeend', '<span class="qty-saved">&#10003;</span>');
+  const old = input.parentElement.querySelector('.qty-indicator');
+  if (old) old.remove();
+  if (isLossOnly()) {
+    if (val > 0) {
+      input.style.borderColor = 'var(--success)';
+      input.parentElement.insertAdjacentHTML('beforeend', '<span class="qty-indicator" style="color:var(--text-secondary);font-size:10px">loss</span>');
+    } else {
+      input.style.borderColor = '';
+    }
   } else {
-    input.style.borderColor = '';
-    if (chk) chk.remove();
+    if (val > 0) {
+      input.style.borderColor = 'var(--success)';
+      input.parentElement.insertAdjacentHTML('beforeend', '<span class="qty-indicator profit">+</span>');
+    } else if (val < 0) {
+      input.style.borderColor = 'var(--danger)';
+      input.parentElement.insertAdjacentHTML('beforeend', '<span class="qty-indicator loss">-</span>');
+    } else {
+      input.style.borderColor = '';
+    }
   }
   updateLogTotal();
 }
 
 function updateLogTotal() {
-  let count = 0;
+  let profit = 0, loss = 0;
   for (const p of data.products) {
     const v = parseFloat(document.getElementById(`log-qty-${p.id}`)?.value);
-    if (v > 0) count++;
+    if (isLossOnly()) {
+      if (v > 0) loss++;
+    } else {
+      if (v > 0) profit++;
+      else if (v < 0) loss++;
+    }
   }
-  document.getElementById('log-total-label').textContent = `Items with loss: ${count}`;
+  if (isLossOnly()) {
+    document.getElementById('log-total-label').innerHTML = loss > 0 ? `Items with loss: ${loss}` : '';
+  } else {
+    document.getElementById('log-total-label').innerHTML = `Profit: <span style="color:var(--success)">+${profit}</span> &nbsp;|&nbsp; Loss: <span style="color:var(--danger)">-${loss}</span>` + (profit+loss > 0 ? ` &nbsp;|&nbsp; Total: ${profit+loss} items` : '');
+  }
 }
 
 function saveDailyLog() {
@@ -281,10 +331,10 @@ function saveDailyLog() {
   const existing = data.dailyLogs[date] || {};
   for (const p of data.products) {
     const v = parseFloat(document.getElementById(`log-qty-${p.id}`)?.value);
-    if (v > 0) existing[p.id] = v;
+    if (v !== 0) existing[p.id] = v;
     else delete existing[p.id];
   }
-  if (Object.keys(existing).length === 0) { toast('No losses to save'); return; }
+  if (Object.keys(existing).length === 0) { toast('Nothing to save'); return; }
   data.dailyLogs[date] = existing;
   saveData();
   toast(`Saved for ${date}`);
@@ -306,6 +356,8 @@ function histSortedDates() { return Object.keys(data.dailyLogs).sort(); }
 
 function renderHistory() {
   if (!data) return;
+  document.getElementById('hist-subtitle').textContent = isLossOnly() ? 'View past loss records' : 'View past profit/loss records';
+  document.getElementById('hist-qty-header').textContent = isLossOnly() ? 'Loss Qty' : 'Qty (+/-)';
   document.getElementById('hist-day-view').style.display = histView === 'day' ? '' : 'none';
   document.getElementById('hist-week-view').style.display = histView === 'week' ? '' : 'none';
   if (histView === 'day') renderDayView();
@@ -337,7 +389,7 @@ function renderDayView() {
   categories().forEach(cat => {
     if (!groups[cat]) return;
     html += `<tr style="background:#f8fafc"><td colspan="4" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
-    groups[cat].forEach(p => { idx++; html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td>${log[p.id]}</td><td>${p.unit}</td></tr>`; });
+    groups[cat].forEach(p => { idx++; const v = log[p.id]; let cls = ''; let disp = v; if (!isLossOnly()) { cls = v > 0 ? 'profit' : v < 0 ? 'loss' : ''; disp = v > 0 ? '+' + v : v; } html += `<tr><td style="color:var(--text-secondary)">${idx}</td><td><strong>${p.name}</strong></td><td class="${cls}">${disp}</td><td>${p.unit}</td></tr>`; });
   });
   tbody.innerHTML = html;
 }
@@ -361,7 +413,7 @@ function histNext() {
 function deleteHistory() {
   const date = document.getElementById('hist-date').value;
   if (!date || !data.dailyLogs[date]) { toast('No data for this date'); return; }
-  if (!confirm(`Delete all loss records for ${date}?`)) return;
+  if (!confirm(`Delete all records for ${date}?`)) return;
   delete data.dailyLogs[date];
   saveData();
   renderDayView();
@@ -406,15 +458,20 @@ function renderChart() {
     return { pid, name: p ? p.name : 'Unknown', total };
   }).sort((a, b) => b.total - a.total);
 
-  const colors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4','#94a3b8','#8b5cf6','#14b8a6','#f97316','#e11d48','#84cc16'];
+  const lossMode = isLossOnly();
   const dateLabels = allDates.map(d => { const dt = new Date(d + 'T12:00:00'); return dayLabels[dt.getDay()] + ' ' + d.slice(-2); });
 
+  const barColors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4','#94a3b8','#8b5cf6','#14b8a6','#f97316','#e11d48','#84cc16'];
   const datasets = sortedItems.map((item, i) => ({
     label: item.name,
     data: allDates.map(d => itemDaily[item.pid][d] || 0),
-    backgroundColor: colors[i % colors.length],
+    backgroundColor: lossMode
+      ? barColors[i % barColors.length]
+      : function(ctx) { return ctx.raw >= 0 ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.8)'; },
+    borderColor: lossMode ? barColors[i % barColors.length] : function(ctx) { return ctx.raw >= 0 ? '#16a34a' : '#dc2626'; },
+    borderWidth: lossMode ? 0 : 1,
     borderRadius: 0,
-    barThickness: 28
+    barThickness: 22
   }));
 
   chartInstance = new Chart(document.getElementById('bar-chart'), {
@@ -422,26 +479,47 @@ function renderChart() {
     data: { labels: dateLabels, datasets },
     options: {
       responsive: true, maintainAspectRatio: true,
-      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } }, tooltip: { mode: 'index', intersect: false } },
-      scales: { x: { stacked: true, ticks: { font: { size: 10 } } }, y: { stacked: true, beginAtZero: true, ticks: { font: { size: 10 } } } }
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } },
+        tooltip: {
+          mode: 'nearest', intersect: true,
+          callbacks: {
+            label: function(ctx) {
+              const val = ctx.raw;
+              return ctx.dataset.label + ': ' + (lossMode ? val : (val >= 0 ? '+' : '') + val);
+            }
+          }
+        }
+      },
+      scales: { x: { stacked: true, ticks: { font: { size: 10 } } }, y: { stacked: true, beginAtZero: true, ticks: { font: { size: 10 }, callback: function(v) { return lossMode ? v : (v >= 0 ? '+' : '') + v; } } } }
     }
   });
 
   // Line chart: top 6 items as individual lines
   const top6 = sortedItems.slice(0, 6);
-  const lineColors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4'];
-  const lineDatasets = top6.map((item, i) => ({
+  const lineColors = ['#16a34a','#dc2626','#6366f1','#f59e0b','#06b6d4','#ec4899'];
+  const lineDatasets = top6.map((item) => ({
     label: item.name,
     data: allDates.map(d => itemDaily[item.pid][d] || 0),
-    borderColor: lineColors[i],
-    backgroundColor: lineColors[i] + '22',
-    tension: 0.3, pointRadius: 3
+    borderColor: lossMode ? '#ef4444' : function(ctx) {
+      if (!ctx.dataset || ctx.dataset.data.length === 0) return lineColors[0];
+      return ctx.dataset.data[ctx.dataset.data.length - 1] >= 0 ? '#16a34a' : '#dc2626';
+    },
+    backgroundColor: lossMode ? 'rgba(239,68,68,0.15)' : function(ctx) {
+      if (!ctx.dataset || ctx.dataset.data.length === 0) return 'rgba(22,163,74,0.15)';
+      return ctx.dataset.data[ctx.dataset.data.length - 1] >= 0 ? 'rgba(22,163,74,0.15)' : 'rgba(220,38,38,0.15)';
+    },
+    tension: 0.3, pointRadius: 3,
+    pointBackgroundColor: lossMode ? '#ef4444' : function(ctx) { return ctx.raw >= 0 ? '#16a34a' : '#dc2626'; }
   }));
   chartInstance2 = new Chart(document.getElementById('line-chart'), {
     type: 'line',
     data: { labels: dateLabels, datasets: lineDatasets },
-    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } }, tooltip: { mode: 'index', intersect: false } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } } }
+    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } }, tooltip: { mode: 'nearest', intersect: true, callbacks: { label: function(ctx) { const val = ctx.raw; return ctx.dataset.label + ': ' + (lossMode ? val : (val >= 0 ? '+' : '') + val); } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: function(v) { return lossMode ? v : (v >= 0 ? '+' : '') + v; } } }, x: { ticks: { font: { size: 10 } } } } }
   });
+
+  // Update chart titles
+  document.getElementById('bar-chart-title').textContent = lossMode ? 'Loss by Item (stacked by day)' : 'Profit/Loss by Item (stacked by day)';
 }
 function chartPrev() { const i=document.getElementById('chart-date'); const s=Object.keys(data.dailyLogs).sort(); const c=i.value||s[s.length-1]; const x=s.indexOf(c); if(x>0){i.value=s[x-1];renderCharts();} }
 function chartNext() { const i=document.getElementById('chart-date'); const s=Object.keys(data.dailyLogs).sort(); const c=i.value||s[s.length-1]; const x=s.indexOf(c); if(x<s.length-1){i.value=s[x+1];renderCharts();} }
@@ -477,16 +555,17 @@ function renderWeekView() {
     if (!groups[cat]) groups[cat] = [];
     const vals = dates.map(d => { const log = data.dailyLogs[d]; return log && log[p.id] ? log[p.id] : 0; });
     const total = vals.reduce((s, v) => s + v, 0);
-    groups[cat].push({ name: p.name, unit: p.unit, vals, total });
+    groups[cat].push({ name: p.name, unit: p.unit, vals, total, anyNonZero: vals.some(v => v !== 0) });
   });
   let hasData = false; let html = '';
   categories().forEach(cat => {
     const rows = groups[cat];
-    if (!rows || rows.every(r => r.total === 0)) return;
+    if (!rows || rows.every(r => !r.anyNonZero)) return;
     hasData = true;
     html += `<tr style="background:#f8fafc"><td colspan="10" style="padding:6px 10px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">${cat}</td></tr>`;
-    rows.filter(r => r.total > 0).forEach(r => {
-      html += `<tr><td>${r.name}</td>${r.vals.map(v => `<td>${v || '-'}</td>`).join('')}<td class="col-total">${r.total}</td><td>${r.unit}</td></tr>`;
+    rows.filter(r => r.anyNonZero).forEach(r => {
+      const totalCls = isLossOnly() ? '' : (r.total > 0 ? 'profit' : r.total < 0 ? 'loss' : '');
+      html += `<tr><td>${r.name}</td>${r.vals.map(v => { if (v === 0) return '<td>-</td>'; if (isLossOnly()) return `<td>${v}</td>`; const cls = v > 0 ? 'profit' : 'loss'; return `<td class="${cls}">${v > 0 ? '+' + v : v}</td>`; }).join('')}<td class="col-total ${totalCls}">${isLossOnly() ? r.total : (r.total > 0 ? '+' + r.total : r.total)}</td><td>${r.unit}</td></tr>`;
     });
   });
   if (!hasData) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }

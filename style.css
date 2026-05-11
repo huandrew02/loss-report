@@ -150,6 +150,8 @@ textarea { resize: vertical; min-height: 50px; }
 .btn-ghost { background: transparent; color: var(--text-secondary); }
 .btn-ghost:hover { background: #f1f5f9; }
 .btn-sm { padding: 4px 8px; font-size: 11px; }
+.btn-mode { background: var(--bg); border: 1px solid var(--border); color: var(--text-secondary); font-size: 11px; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight: 500; white-space: nowrap; }
+.btn-mode:hover { border-color: var(--primary); color: var(--primary); }
 .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* Tables */
@@ -225,7 +227,15 @@ tr.drag-over-below { border-bottom: 2px solid var(--primary) !important; }
 
 /* Qty cell */
 .qty-cell { display: flex; align-items: center; gap: 6px; }
-.qty-saved { color: var(--success); font-size: 12px; font-weight: 600; }
+.qty-indicator { font-size: 12px; font-weight: 700; }
+.qty-indicator.profit { color: var(--success); }
+.qty-indicator.loss { color: var(--danger); }
+
+/* Profit/loss table cells */
+td.profit { color: var(--success); font-weight: 600; }
+td.loss { color: var(--danger); font-weight: 600; }
+td.col-total.profit { color: var(--success); }
+td.col-total.loss { color: var(--danger); }
 
 /* Qty input */
 input[type="number"] { width: 80px; }

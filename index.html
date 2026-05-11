@@ -87,7 +87,7 @@
     <!-- Daily Log -->
     <section class="page active" id="page-log">
       <h1>Daily Log</h1>
-      <p class="subtitle">Enter loss quantities for each item</p>
+      <p class="subtitle" id="log-subtitle">Enter loss quantities for each item</p>
       <div class="card" style="padding:14px 18px;margin-bottom:14px">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:6px">
@@ -100,13 +100,14 @@
               Save
             </button>
             <span id="log-save-status" style="font-size:12px;color:var(--success);font-weight:500"></span>
+            <button class="btn-mode" id="mode-toggle" onclick="toggleMode()" style="margin-left:auto">Loss Only</button>
           </div>
         </div>
       </div>
       <div class="card" style="padding:0">
         <div class="table-wrap">
           <table>
-            <thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:120px">Loss Qty</th><th style="width:60px">Unit</th></tr></thead>
+            <thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:120px" id="log-qty-header">Qty</th><th style="width:60px">Unit</th></tr></thead>
             <tbody id="log-tbody"></tbody>
           </table>
         </div>
@@ -119,7 +120,7 @@
     <!-- History -->
     <section class="page" id="page-history">
       <h1>History</h1>
-      <p class="subtitle">View past loss records</p>
+      <p class="subtitle" id="hist-subtitle">View past loss records</p>
       <div class="view-toggle" id="hist-view-toggle">
         <button data-view="day">Day</button>
         <button class="active" data-view="week">Week</button>
@@ -134,9 +135,9 @@
         <div class="stats" id="hist-stats"></div>
         <div class="card" style="padding:0">
           <div class="table-wrap">
-            <table><thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:90px">Loss Qty</th><th style="width:60px">Unit</th></tr></thead><tbody id="hist-tbody"></tbody></table>
+            <table><thead><tr><th style="width:36px">#</th><th>Item</th><th style="width:90px" id="hist-qty-header">Qty</th><th style="width:60px">Unit</th></tr></thead><tbody id="hist-tbody"></tbody></table>
           </div>
-          <div class="empty" id="hist-empty"><p>No losses recorded for this date</p></div>
+          <div class="empty" id="hist-empty"><p>No records for this date</p></div>
         </div>
       </div>
       <div id="hist-week-view" style="display:none">
@@ -152,12 +153,12 @@
               <tbody id="week-tbody"></tbody>
             </table>
           </div>
-          <div class="empty" id="week-empty"><p>No losses in this week</p></div>
+          <div class="empty" id="week-empty"><p>No records in this week</p></div>
         </div>
       </div>
       <div class="card" id="chart-card" style="display:none">
         <div style="display:flex;flex-direction:column;gap:24px">
-          <div><h3 style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">Per Item (stacked by day)</h3><canvas id="bar-chart" style="max-height:500px"></canvas></div>
+          <div><h3 id="bar-chart-title" style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">Loss by Item (stacked by day)</h3><canvas id="bar-chart" style="max-height:500px"></canvas></div>
           <div><h3 style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">Top 6 Items Trend</h3><canvas id="line-chart" style="max-height:400px"></canvas></div>
         </div>
       </div>
