@@ -185,14 +185,12 @@ function navigate(page) {
   document.querySelectorAll(`.nav-item[data-page="${page}"]`).forEach(n => n.classList.add('active'));
   if (page === 'log') renderDailyLog(false);
   else if (page === 'history') renderHistory();
-  else if (page === 'charts') renderCharts();
   else if (page === 'products') { renderCatSelect(); renderProducts(); }
 }
 
 function renderPage(page) {
   if (page === 'log') renderDailyLog(false);
   else if (page === 'history') renderHistory();
-  else if (page === 'charts') renderCharts();
   else if (page === 'products') { renderCatSelect(); renderProducts(); }
 }
 
@@ -374,114 +372,70 @@ function deleteHistory() {
 let weekOffset = 0;
 let chartInstance = null;
 let chartInstance2 = null;
-let chartView = 'week';
-let chartWeekOffset = 0;
 
-document.querySelectorAll('#chart-view-toggle button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#chart-view-toggle button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    chartView = btn.dataset.view;
-    document.getElementById('chart-day-controls').style.display = chartView === 'day' ? '' : 'none';
-    document.getElementById('chart-week-controls').style.display = chartView === 'week' ? '' : 'none';
-    renderCharts();
-  });
-});
-
-function renderCharts() {
+function renderChart() {
   if (!data) return;
   if (chartInstance) chartInstance.destroy();
   if (chartInstance2) chartInstance2.destroy();
 
   const dayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const el = document.getElementById('charts-card');
-  const empty = document.getElementById('charts-empty');
+  const el = document.getElementById('chart-card');
 
-  if (chartView === 'day') {
-    const input = document.getElementById('chart-date');
-    if (!input.value) {
-      const sorted = Object.keys(data.dailyLogs).sort();
-      input.value = sorted.length > 0 ? sorted[sorted.length - 1] : dateStr(new Date());
+  // Use current week data (same as week view)
+  const base = addDays(new Date(), weekOffset * 7);
+  const weekStart = getWeekStart(base);
+  const dates = dayLabels.map((_, i) => dateStr(addDays(weekStart, i)));
+  const allDates = dates.filter(d => data.dailyLogs[d]);
+
+  if (allDates.length === 0) { el.style.display = 'none'; return; }
+  el.style.display = '';
+
+  // Per-item data across the week
+  const itemDaily = {};
+  for (const date of allDates) {
+    for (const pid in data.dailyLogs[date]) {
+      const qty = data.dailyLogs[date][pid];
+      if (!itemDaily[pid]) itemDaily[pid] = {};
+      itemDaily[pid][date] = (itemDaily[pid][date] || 0) + qty;
     }
-    document.getElementById('chart-week-controls').style.display = 'none';
-    const targetDate = input.value;
-    const log = data.dailyLogs[targetDate] || {};
-    const entries = Object.keys(log).length;
-    if (entries < 2) { el.style.display = 'none'; empty.style.display = ''; return; }
-    empty.style.display = 'none'; el.style.display = '';
-
-    const items = data.products.filter(p => log[p.id]).map(p => ({ name: p.name, qty: log[p.id] })).sort((a, b) => b.qty - a.qty);
-    chartInstance = new Chart(document.getElementById('bar-chart'), {
-      type: 'bar',
-      data: { labels: items.map(i => i.name), datasets: [{ label: '', data: items.map(i => i.qty), backgroundColor: '#6366f1', borderRadius: 3, barThickness: 14 }] },
-      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.x + ' loss' } } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } } }
-    });
-
-    const sorted = Object.keys(data.dailyLogs).sort().reverse();
-    const recent = sorted.slice(0, 7).reverse();
-    const totals = recent.map(d => { let s = 0; for (const pid in data.dailyLogs[d]) s += data.dailyLogs[d][pid]; return s; });
-    chartInstance2 = new Chart(document.getElementById('line-chart'), {
-      type: 'line',
-      data: { labels: recent.map(d => d.slice(-2) + '/' + d.slice(5,7)), datasets: [{ label: '', data: totals, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', fill: true, tension: 0.3, pointRadius: 3 }] },
-      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } } }
-    });
-  } else {
-    document.getElementById('chart-day-controls').style.display = 'none';
-    const base = addDays(new Date(), chartWeekOffset * 7);
-    const weekStart = getWeekStart(base);
-    const dates = dayLabels.map((_, i) => dateStr(addDays(weekStart, i)));
-    document.getElementById('chart-week-label').textContent = `${dates[0]} — ${dates[6]}`;
-    const allDates = dates.filter(d => data.dailyLogs[d]);
-
-    if (allDates.length === 0) { el.style.display = 'none'; empty.style.display = ''; return; }
-    empty.style.display = 'none'; el.style.display = '';
-
-    // Per-item data across the week
-    const itemWeekTotals = {};
-    const itemDaily = {};
-    for (const date of allDates) {
-      for (const pid in data.dailyLogs[date]) {
-        const qty = data.dailyLogs[date][pid];
-        itemWeekTotals[pid] = (itemWeekTotals[pid] || 0) + qty;
-        if (!itemDaily[pid]) itemDaily[pid] = {};
-        itemDaily[pid][date] = (itemDaily[pid][date] || 0) + qty;
-      }
-    }
-
-    const sortedItems = Object.entries(itemWeekTotals).sort((a, b) => b[1] - a[1]);
-    const colors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4','#94a3b8','#8b5cf6','#14b8a6','#f97316'];
-    const dateLabels = allDates.map(d => { const dt = new Date(d + 'T12:00:00'); return dayLabels[dt.getDay()] + ' ' + d.slice(-2); });
-
-    const datasets = sortedItems.map(([pid], i) => {
-      const p = data.products.find(x => x.id == pid);
-      return {
-        label: p ? p.name : 'Unknown',
-        data: allDates.map(d => (itemDaily[pid] && itemDaily[pid][d]) || 0),
-        backgroundColor: colors[i % colors.length],
-        borderRadius: 2, barThickness: 14
-      };
-    });
-
-    chartInstance = new Chart(document.getElementById('bar-chart'), {
-      type: 'bar',
-      data: { labels: dateLabels, datasets },
-      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } }, tooltip: { mode: 'index', intersect: false } }, scales: { x: { stacked: false, ticks: { font: { size: 9 } } }, y: { beginAtZero: true, ticks: { font: { size: 10 } } } } }
-    });
-
-    const lineColors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4','#94a3b8','#8b5cf6'];
-    const lineDatasets = sortedItems.slice(0, 8).map(([pid], i) => {
-      const p = data.products.find(x => x.id == pid);
-      return { label: p ? p.name : 'Item', data: allDates.map(d => (itemDaily[pid] && itemDaily[pid][d]) || 0), borderColor: lineColors[i], backgroundColor: lineColors[i] + '22', tension: 0.3, pointRadius: 3 };
-    });
-
-    chartInstance2 = new Chart(document.getElementById('line-chart'), {
-      type: 'line',
-      data: { labels: dateLabels, datasets: lineDatasets },
-      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 9 } } } } }
-    });
   }
-}
 
+  const sortedItems = Object.entries(itemDaily).map(([pid, days]) => {
+    const total = Object.values(days).reduce((s, v) => s + v, 0);
+    const p = data.products.find(x => x.id == pid);
+    return { pid, name: p ? p.name : 'Unknown', total };
+  }).sort((a, b) => b.total - a.total);
+
+  const colors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4','#94a3b8','#8b5cf6','#14b8a6','#f97316','#e11d48','#84cc16'];
+  const dateLabels = allDates.map(d => { const dt = new Date(d + 'T12:00:00'); return dayLabels[dt.getDay()] + ' ' + d.slice(-2); });
+
+  // Stacked bar: each day is a column, each item a colored segment
+  const datasets = sortedItems.map((item, i) => ({
+    label: item.name,
+    data: allDates.map(d => itemDaily[item.pid][d] || 0),
+    backgroundColor: colors[i % colors.length],
+    borderRadius: 0,
+    barThickness: 24
+  }));
+
+  chartInstance = new Chart(document.getElementById('bar-chart'), {
+    type: 'bar',
+    data: { labels: dateLabels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } }, tooltip: { mode: 'index', intersect: false } },
+      scales: { x: { stacked: true, ticks: { font: { size: 10 } } }, y: { stacked: true, beginAtZero: true, ticks: { font: { size: 10 } } } }
+    }
+  });
+
+  // Line chart: single total line
+  const totals = allDates.map(d => { let s = 0; for (const pid in data.dailyLogs[d]) s += data.dailyLogs[d][pid]; return s; });
+  chartInstance2 = new Chart(document.getElementById('line-chart'), {
+    type: 'line',
+    data: { labels: dateLabels, datasets: [{ label: 'Total Loss', data: totals, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: '#6366f1' }] },
+    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.y + ' total' } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } } }
+  });
+}
 function chartPrev() { const i=document.getElementById('chart-date'); const s=Object.keys(data.dailyLogs).sort(); const c=i.value||s[s.length-1]; const x=s.indexOf(c); if(x>0){i.value=s[x-1];renderCharts();} }
 function chartNext() { const i=document.getElementById('chart-date'); const s=Object.keys(data.dailyLogs).sort(); const c=i.value||s[s.length-1]; const x=s.indexOf(c); if(x<s.length-1){i.value=s[x+1];renderCharts();} }
 function chartWeekPrev() { chartWeekOffset--; renderCharts(); }
@@ -531,6 +485,7 @@ function renderWeekView() {
   if (!hasData) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
   empty.style.display = 'none';
   tbody.innerHTML = html;
+  renderChart();
 }
 
 function weekPrev() { weekOffset--; renderWeekView(); }
