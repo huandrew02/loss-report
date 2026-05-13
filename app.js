@@ -483,14 +483,14 @@ function renderChart() {
   });
   const origBarBg = barDatasets.map(ds => ds.backgroundColor);
   const origBarBorder = barDatasets.map(ds => ds.borderColor);
-  let barHovering = false;
+  let barHovering = false, barLegendIdx = -1;
 
   chartInstance = new Chart(document.getElementById('bar-chart'), {
     type: 'bar', data: { labels: dateLabels, datasets: barDatasets },
     options: {
       responsive: true, maintainAspectRatio: true, animation: { duration: 0 },
       onHover: function(e) {
-        if (barHovering) return; barHovering = true;
+        if (barHovering || barLegendIdx >= 0) return; barHovering = true;
         const chart = this;
         const el = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
         chart.data.datasets.forEach((ds, i) => {
@@ -502,7 +502,29 @@ function renderChart() {
         requestAnimationFrame(() => { barHovering = false; });
       },
       plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } },
+        legend: {
+          position: 'bottom',
+          labels: { boxWidth: 10, padding: 8, font: { size: 9 } },
+          onHover: function(e, legendItem) {
+            barLegendIdx = legendItem.datasetIndex;
+            const chart = this.chart;
+            chart.data.datasets.forEach((ds, i) => {
+              const dim = i !== barLegendIdx;
+              ds.backgroundColor = dim ? 'rgba(200,200,200,0.12)' : origBarBg[i];
+              ds.borderColor = dim ? 'rgba(200,200,200,0.2)' : origBarBorder[i];
+            });
+            chart.update();
+          },
+          onLeave: function() {
+            barLegendIdx = -1;
+            const chart = this.chart;
+            chart.data.datasets.forEach((ds, i) => {
+              ds.backgroundColor = origBarBg[i];
+              ds.borderColor = origBarBorder[i];
+            });
+            chart.update();
+          }
+        },
         tooltip: { mode: 'nearest', intersect: true, callbacks: { label: function(ctx) { const val = ctx.raw; return ctx.dataset.label + ': ' + (lossMode ? val : (val >= 0 ? '+' : '') + val); } } }
       },
       scales: { x: { stacked: true, ticks: { font: { size: 10 } } }, y: { stacked: true, beginAtZero: true, ticks: { font: { size: 10 }, callback: function(v) { return lossMode ? v : (v >= 0 ? '+' : '') + v; } } } }
@@ -522,14 +544,14 @@ function renderChart() {
   const origLineBorder = lineDatasets.map(ds => ds.borderColor);
   const origLineBg = lineDatasets.map(ds => ds.backgroundColor);
   const origLinePointBg = lineDatasets.map(ds => ds.pointBackgroundColor);
-  let lineHovering = false;
+  let lineHovering = false, lineLegendIdx = -1;
 
   chartInstance2 = new Chart(document.getElementById('line-chart'), {
     type: 'line', data: { labels: dateLabels, datasets: lineDatasets },
     options: {
       responsive: true, maintainAspectRatio: true, animation: { duration: 0 },
       onHover: function(e) {
-        if (lineHovering) return; lineHovering = true;
+        if (lineHovering || lineLegendIdx >= 0) return; lineHovering = true;
         const chart = this;
         const el = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
         chart.data.datasets.forEach((ds, i) => {
@@ -551,7 +573,46 @@ function renderChart() {
         chart.update();
         requestAnimationFrame(() => { lineHovering = false; });
       },
-      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } }, tooltip: { mode: 'nearest', intersect: true, callbacks: { label: function(ctx) { const val = ctx.raw; return ctx.dataset.label + ': ' + (lossMode ? val : (val >= 0 ? '+' : '') + val); } } } },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { boxWidth: 10, padding: 8, font: { size: 9 } },
+          onHover: function(e, legendItem) {
+            lineLegendIdx = legendItem.datasetIndex;
+            const chart = this.chart;
+            chart.data.datasets.forEach((ds, i) => {
+              const isHovered = i === lineLegendIdx;
+              if (!isHovered) {
+                ds.borderColor = 'rgba(200,200,200,0.2)';
+                ds.backgroundColor = 'transparent';
+                ds.pointBackgroundColor = 'rgba(200,200,200,0.2)';
+                ds.borderWidth = 0.5;
+                ds.pointRadius = 1.5;
+              } else {
+                ds.borderColor = origLineBorder[i];
+                ds.backgroundColor = origLineBg[i];
+                ds.pointBackgroundColor = origLinePointBg[i];
+                ds.borderWidth = 5;
+                ds.pointRadius = 8;
+              }
+            });
+            chart.update();
+          },
+          onLeave: function() {
+            lineLegendIdx = -1;
+            const chart = this.chart;
+            chart.data.datasets.forEach((ds, i) => {
+              ds.borderColor = origLineBorder[i];
+              ds.backgroundColor = origLineBg[i];
+              ds.pointBackgroundColor = origLinePointBg[i];
+              ds.borderWidth = 2;
+              ds.pointRadius = 3;
+            });
+            chart.update();
+          }
+        },
+        tooltip: { mode: 'nearest', intersect: true, callbacks: { label: function(ctx) { const val = ctx.raw; return ctx.dataset.label + ': ' + (lossMode ? val : (val >= 0 ? '+' : '') + val); } } }
+      },
       scales: { y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: function(v) { return lossMode ? v : (v >= 0 ? '+' : '') + v; } } }, x: { ticks: { font: { size: 10 } } } }
     }
   });
