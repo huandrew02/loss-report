@@ -181,6 +181,10 @@ document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
 });
 
 function navigate(page) {
+  if (logDirty && page !== 'log') {
+    if (!confirm('You have unsaved changes. Discard them?')) return;
+    logDirty = false;
+  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.remove('active'));
   document.getElementById(`page-${page}`).classList.add('active');
@@ -272,15 +276,17 @@ function renderDailyLog(clearInputs) {
   if (!clearInputs) {
     for (const pid in saved) {
       const input = document.getElementById(`log-qty-${pid}`);
-      if (input) onLogQtyChange(parseInt(pid));
+      if (input) onLogQtyChange(parseInt(pid), true);
     }
   }
   updateLogTotal();
   const hasSaved = !!data.dailyLogs[date] && Object.keys(data.dailyLogs[date]).length > 0;
+  logDirty = false;
   document.getElementById('log-save-status').textContent = hasSaved ? 'Saved' : '';
+  document.getElementById('log-save-status').style.color = 'var(--success)';
 }
 
-function onLogQtyChange(productId) {
+function onLogQtyChange(productId, silent) {
   const input = document.getElementById(`log-qty-${productId}`);
   const val = parseFloat(input.value);
   const old = input.parentElement.querySelector('.qty-indicator');
@@ -302,6 +308,11 @@ function onLogQtyChange(productId) {
     } else {
       input.style.borderColor = '';
     }
+  }
+  if (!silent) {
+    logDirty = true;
+    document.getElementById('log-save-status').textContent = 'Unsaved';
+    document.getElementById('log-save-status').style.color = 'var(--danger)';
   }
   updateLogTotal();
 }
@@ -348,6 +359,9 @@ function saveDailyLog(silent) {
   if (!hasChanges) { if (!silent) toast('No changes'); return; }
   data.dailyLogs[date] = existing;
   saveData();
+  logDirty = false;
+  document.getElementById('log-save-status').textContent = 'Saved';
+  document.getElementById('log-save-status').style.color = 'var(--success)';
   if (!silent) toast(`Saved for ${date}`);
 }
 
@@ -435,6 +449,7 @@ function deleteHistory() {
 let weekOffset = 0;
 let chartInstance = null;
 let chartInstance2 = null;
+let logDirty = false;
 
 function renderChart() {
   if (!data) return;
