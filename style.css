@@ -259,3 +259,21 @@ input[type="number"] { width: 80px; }
   flex-direction: column; padding: 4px 10px; font-size: 10px; gap: 1px; width: auto;
 }
 .mobile-nav .nav-item svg { width: 16px; height: 16px; }
+
+/* Floating Save button (mobile only) */
+.save-fab { display: none; }
+@media (max-width: 768px) {
+  #page-log .btn-primary { display: none; }
+  .save-fab {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    position: fixed; bottom: 72px; right: 16px; z-index: 100;
+    width: 56px; height: 56px; border-radius: 28px;
+    background: var(--primary); color: #fff; border: none;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(99,102,241,.4);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .save-fab:active { transform: scale(.92); box-shadow: 0 2px 6px rgba(99,102,241,.3); }
+  .save-fab .fab-label { display: none; }
+  .save-fab svg { flex-shrink: 0; }
+}
