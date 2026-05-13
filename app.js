@@ -471,7 +471,7 @@ function renderChart() {
     const total = Object.values(days).reduce((s, v) => s + v, 0);
     const p = data.products.find(x => x.id == pid);
     return { pid, name: p ? p.name : 'Unknown', total, unit: p ? p.unit : 'g' };
-  }).sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+  }).sort((a, b) => isLossOnly() ? (b.total - a.total) : (a.total - b.total));
 
   const lossMode = isLossOnly();
   const dateLabels = allDates.map(d => { const dt = new Date(d + 'T12:00:00'); return dayLabels[dt.getDay()] + ' ' + d.slice(-2); });
