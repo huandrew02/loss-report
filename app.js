@@ -477,19 +477,11 @@ function renderChart() {
     data: allDates.map(d => itemDaily[item.pid][d] || 0),
     backgroundColor: lossMode
       ? barColors[i % barColors.length]
-      : function(ctx) {
-          if (ctx.dataset.hovered === false) return 'rgba(200,200,200,0.15)';
-          return ctx.raw >= 0 ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.8)';
-        },
-    borderColor: lossMode ? barColors[i % barColors.length] : function(ctx) {
-      if (ctx.dataset.hovered === false) return 'rgba(200,200,200,0.2)';
-      return ctx.raw >= 0 ? '#16a34a' : '#dc2626';
-    },
+      : function(ctx) { return ctx.raw >= 0 ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.8)'; },
+    borderColor: lossMode ? barColors[i % barColors.length] : function(ctx) { return ctx.raw >= 0 ? '#16a34a' : '#dc2626'; },
     borderWidth: lossMode ? 0 : 1,
     borderRadius: 0,
-    barThickness: 22,
-    hoverBorderWidth: 3,
-    hoverBorderColor: '#1e293b'
+    barThickness: 22
   }));
 
   chartInstance = new Chart(document.getElementById('bar-chart'), {
@@ -497,20 +489,6 @@ function renderChart() {
     data: { labels: dateLabels, datasets },
     options: {
       responsive: true, maintainAspectRatio: true,
-      onHover: function(e) {
-        const chart = this;
-        const el = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
-        chart.data.datasets.forEach((ds, i) => {
-          if (el.length > 0 && el[0].datasetIndex === i) {
-            ds.hovered = true;
-          } else if (el.length > 0) {
-            ds.hovered = false;
-          } else {
-            delete ds.hovered;
-          }
-        });
-        chart.update();
-      },
       plugins: {
         legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } },
         tooltip: {
@@ -529,49 +507,25 @@ function renderChart() {
 
   // Line chart: top 6 items as individual lines
   const top6 = sortedItems.slice(0, 6);
-  const lineColors = ['#16a34a','#dc2626','#6366f1','#f59e0b','#06b6d4','#ec4899'];
-  const lineDatasets = top6.map((item) => ({
+  const lineColors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4'];
+  const lineDatasets = top6.map((item, i) => ({
     label: item.name,
     data: allDates.map(d => itemDaily[item.pid][d] || 0),
-    borderColor: lossMode ? '#ef4444' : function(ctx) {
-      if (ctx.dataset.hovered === false) return 'rgba(200,200,200,0.2)';
-      if (!ctx.dataset || ctx.dataset.data.length === 0) return lineColors[0];
-      return ctx.dataset.data[ctx.dataset.data.length - 1] >= 0 ? '#16a34a' : '#dc2626';
-    },
-    backgroundColor: lossMode ? 'rgba(239,68,68,0.15)' : function(ctx) {
-      if (ctx.dataset.hovered === false) return 'transparent';
-      if (!ctx.dataset || ctx.dataset.data.length === 0) return 'rgba(22,163,74,0.15)';
-      return ctx.dataset.data[ctx.dataset.data.length - 1] >= 0 ? 'rgba(22,163,74,0.15)' : 'rgba(220,38,38,0.15)';
-    },
-    tension: 0.3, pointRadius: 3, hoverPointRadius: 7, hoverBorderWidth: 4,
-    pointBackgroundColor: lossMode ? '#ef4444' : function(ctx) {
-      if (ctx.dataset.hovered === false) return 'rgba(200,200,200,0.2)';
-      return ctx.raw >= 0 ? '#16a34a' : '#dc2626';
-    },
-    pointBorderColor: lossMode ? '#ef4444' : function(ctx) {
-      if (ctx.dataset.hovered === false) return 'rgba(200,200,200,0.2)';
-      return ctx.raw >= 0 ? '#16a34a' : '#dc2626';
-    }
+    borderColor: lineColors[i],
+    backgroundColor: lineColors[i] + '22',
+    borderWidth: 2,
+    tension: 0.3,
+    pointRadius: 3,
+    pointBackgroundColor: lineColors[i],
+    pointBorderColor: '#fff',
+    pointBorderWidth: 1,
+    hoverBorderWidth: 5,
+    hoverRadius: 8
   }));
   chartInstance2 = new Chart(document.getElementById('line-chart'), {
     type: 'line',
     data: { labels: dateLabels, datasets: lineDatasets },
-    options: { responsive: true, maintainAspectRatio: true,
-      onHover: function(e) {
-        const chart = this;
-        const el = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
-        chart.data.datasets.forEach((ds, i) => {
-          if (el.length > 0 && el[0].datasetIndex === i) {
-            ds.hovered = true;
-          } else if (el.length > 0) {
-            ds.hovered = false;
-          } else {
-            delete ds.hovered;
-          }
-        });
-        chart.update();
-      },
-      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } }, tooltip: { mode: 'nearest', intersect: true, callbacks: { label: function(ctx) { const val = ctx.raw; return ctx.dataset.label + ': ' + (lossMode ? val : (val >= 0 ? '+' : '') + val); } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: function(v) { return lossMode ? v : (v >= 0 ? '+' : '') + v; } } }, x: { ticks: { font: { size: 10 } } } } }
+    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } }, tooltip: { mode: 'nearest', intersect: true, callbacks: { label: function(ctx) { const val = ctx.raw; return ctx.dataset.label + ': ' + (lossMode ? val : (val >= 0 ? '+' : '') + val); } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: function(v) { return lossMode ? v : (v >= 0 ? '+' : '') + v; } } }, x: { ticks: { font: { size: 10 } } } } }
   });
 
   // Update chart titles
