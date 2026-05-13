@@ -147,6 +147,13 @@ function loadStore(storeId) {
       data = doc.data();
       if (!data.nextProductId) data.nextProductId = (data.products || []).length + 1;
       if (!data.dailyLogs) data.dailyLogs = {};
+      // Sanitize any NaN values that may have leaked in
+      for (const d in data.dailyLogs) {
+        for (const pid in data.dailyLogs[d]) {
+          if (isNaN(data.dailyLogs[d][pid])) delete data.dailyLogs[d][pid];
+        }
+        if (Object.keys(data.dailyLogs[d]).length === 0) delete data.dailyLogs[d];
+      }
       if (!data.config) data.config = { mode: 'loss-only' };
       if (data.products) data.products.forEach(p => {
         if (p.category === 'Bakery' || p.category === 'Pastries') p.category = 'Pastry';
