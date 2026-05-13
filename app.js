@@ -334,7 +334,8 @@ function saveDailyLog(silent) {
   const existing = data.dailyLogs[date] || {};
   let changed = false;
   for (const p of data.products) {
-    const v = parseFloat(document.getElementById(`log-qty-${p.id}`)?.value);
+    let v = parseFloat(document.getElementById(`log-qty-${p.id}`)?.value);
+    if (isNaN(v)) v = 0;
     if (v !== 0) {
       if (existing[p.id] !== v) changed = true;
       existing[p.id] = v;
