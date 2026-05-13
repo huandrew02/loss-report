@@ -147,15 +147,6 @@ function loadStore(storeId) {
       data = doc.data();
       if (!data.nextProductId) data.nextProductId = (data.products || []).length + 1;
       if (!data.dailyLogs) data.dailyLogs = {};
-      // Sanitize any NaN values and persist the fix
-      let fixed = false;
-      for (const d in data.dailyLogs) {
-        for (const pid in data.dailyLogs[d]) {
-          if (isNaN(data.dailyLogs[d][pid])) { delete data.dailyLogs[d][pid]; fixed = true; }
-        }
-        if (Object.keys(data.dailyLogs[d]).length === 0) { delete data.dailyLogs[d]; fixed = true; }
-      }
-      if (fixed) { skipNextSnapshot = true; doc.ref.set(data).catch(() => { skipNextSnapshot = false; }); }
       if (!data.config) data.config = { mode: 'loss-only' };
       if (data.products) data.products.forEach(p => {
         if (p.category === 'Bakery' || p.category === 'Pastries') p.category = 'Pastry';
@@ -190,10 +181,6 @@ document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
 });
 
 function navigate(page) {
-  // Auto-save when leaving log page
-  if (page !== 'log' && document.getElementById('page-log').classList.contains('active')) {
-    saveDailyLog(true);
-  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.remove('active'));
   document.getElementById(`page-${page}`).classList.add('active');
@@ -342,19 +329,23 @@ function saveDailyLog(silent) {
   if (!date) { if (!silent) toast('Please select a date'); return; }
   const existing = data.dailyLogs[date] || {};
   let changed = false;
+  let hasChanges = false;
   for (const p of data.products) {
-    let v = parseFloat(document.getElementById(`log-qty-${p.id}`)?.value);
-    if (isNaN(v)) v = 0;
+    const raw = document.getElementById(`log-qty-${p.id}`)?.value;
+    const v = raw === '' || raw === undefined || raw === null ? 0 : parseFloat(raw);
+    if (isNaN(v) || !isFinite(v)) continue;
     if (v !== 0) {
-      if (existing[p.id] !== v) changed = true;
+      if (existing[p.id] !== v) hasChanges = true;
       existing[p.id] = v;
     } else {
-      if (existing[p.id]) changed = true;
+      if (existing[p.id]) hasChanges = true;
       delete existing[p.id];
     }
   }
-  if (Object.keys(existing).length === 0) { if (!silent) toast('Nothing to save'); return; }
-  if (!changed && data.dailyLogs[date]) { if (!silent) toast('No changes'); return; }
+  if (Object.keys(existing).length === 0) {
+    if (data.dailyLogs[date]) { delete data.dailyLogs[date]; hasChanges = true; }
+  }
+  if (!hasChanges) { if (!silent) toast('No changes'); return; }
   data.dailyLogs[date] = existing;
   saveData();
   if (!silent) toast(`Saved for ${date}`);
@@ -779,13 +770,6 @@ function addProduct() {
 }
 
 function deleteProduct(id) { if(!confirm('Remove this product?')) return; data.products=data.products.filter(p=>p.id!==id); saveData(); renderCatSelect(); renderProducts(); renderDailyLog(); }
-
-// ---- Auto-save on refresh ----
-window.addEventListener('beforeunload', function() {
-  if (document.getElementById('page-log').classList.contains('active')) {
-    saveDailyLog(true);
-  }
-});
 
 // ---- Init ----
 document.getElementById('log-date').value = dateStr(new Date());
