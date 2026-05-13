@@ -166,7 +166,7 @@ td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: 
 tr:hover td { background: #f8fafc; }
 
 /* Drag handle */
-.drag-handle { cursor: grab; user-select: none; -webkit-user-select: none; }
+.drag-handle { cursor: grab; user-select: none; -webkit-user-select: none; touch-action: none; }
 .drag-handle:active { cursor: grabbing; }
 tr.dragging { opacity: 0.4; }
 tr.drag-over-above { border-top: 2px solid var(--primary) !important; }

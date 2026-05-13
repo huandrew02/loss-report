@@ -181,6 +181,10 @@ document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
 });
 
 function navigate(page) {
+  // Auto-save when leaving log page
+  if (page !== 'log' && document.getElementById('page-log').classList.contains('active')) {
+    saveDailyLog(true);
+  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.remove('active'));
   document.getElementById(`page-${page}`).classList.add('active');
@@ -324,20 +328,26 @@ function updateLogTotal() {
   }
 }
 
-function saveDailyLog() {
+function saveDailyLog(silent) {
   const date = document.getElementById('log-date').value;
-  if (!date) { toast('Please select a date'); return; }
-  // Merge with existing saved data
+  if (!date) { if (!silent) toast('Please select a date'); return; }
   const existing = data.dailyLogs[date] || {};
+  let changed = false;
   for (const p of data.products) {
     const v = parseFloat(document.getElementById(`log-qty-${p.id}`)?.value);
-    if (v !== 0) existing[p.id] = v;
-    else delete existing[p.id];
+    if (v !== 0) {
+      if (existing[p.id] !== v) changed = true;
+      existing[p.id] = v;
+    } else {
+      if (existing[p.id]) changed = true;
+      delete existing[p.id];
+    }
   }
-  if (Object.keys(existing).length === 0) { toast('Nothing to save'); return; }
+  if (Object.keys(existing).length === 0) { if (!silent) toast('Nothing to save'); return; }
+  if (!changed && data.dailyLogs[date]) { if (!silent) toast('No changes'); return; }
   data.dailyLogs[date] = existing;
   saveData();
-  toast(`Saved for ${date}`);
+  if (!silent) toast(`Saved for ${date}`);
 }
 
 // ---- History ----
@@ -467,11 +477,19 @@ function renderChart() {
     data: allDates.map(d => itemDaily[item.pid][d] || 0),
     backgroundColor: lossMode
       ? barColors[i % barColors.length]
-      : function(ctx) { return ctx.raw >= 0 ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.8)'; },
-    borderColor: lossMode ? barColors[i % barColors.length] : function(ctx) { return ctx.raw >= 0 ? '#16a34a' : '#dc2626'; },
+      : function(ctx) {
+          if (ctx.dataset.hovered === false) return 'rgba(200,200,200,0.15)';
+          return ctx.raw >= 0 ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.8)';
+        },
+    borderColor: lossMode ? barColors[i % barColors.length] : function(ctx) {
+      if (ctx.dataset.hovered === false) return 'rgba(200,200,200,0.2)';
+      return ctx.raw >= 0 ? '#16a34a' : '#dc2626';
+    },
     borderWidth: lossMode ? 0 : 1,
     borderRadius: 0,
-    barThickness: 22
+    barThickness: 22,
+    hoverBorderWidth: 3,
+    hoverBorderColor: '#1e293b'
   }));
 
   chartInstance = new Chart(document.getElementById('bar-chart'), {
@@ -479,6 +497,20 @@ function renderChart() {
     data: { labels: dateLabels, datasets },
     options: {
       responsive: true, maintainAspectRatio: true,
+      onHover: function(e) {
+        const chart = this;
+        const el = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+        chart.data.datasets.forEach((ds, i) => {
+          if (el.length > 0 && el[0].datasetIndex === i) {
+            ds.hovered = true;
+          } else if (el.length > 0) {
+            ds.hovered = false;
+          } else {
+            delete ds.hovered;
+          }
+        });
+        chart.update();
+      },
       plugins: {
         legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } },
         tooltip: {
@@ -502,20 +534,44 @@ function renderChart() {
     label: item.name,
     data: allDates.map(d => itemDaily[item.pid][d] || 0),
     borderColor: lossMode ? '#ef4444' : function(ctx) {
+      if (ctx.dataset.hovered === false) return 'rgba(200,200,200,0.2)';
       if (!ctx.dataset || ctx.dataset.data.length === 0) return lineColors[0];
       return ctx.dataset.data[ctx.dataset.data.length - 1] >= 0 ? '#16a34a' : '#dc2626';
     },
     backgroundColor: lossMode ? 'rgba(239,68,68,0.15)' : function(ctx) {
+      if (ctx.dataset.hovered === false) return 'transparent';
       if (!ctx.dataset || ctx.dataset.data.length === 0) return 'rgba(22,163,74,0.15)';
       return ctx.dataset.data[ctx.dataset.data.length - 1] >= 0 ? 'rgba(22,163,74,0.15)' : 'rgba(220,38,38,0.15)';
     },
-    tension: 0.3, pointRadius: 3,
-    pointBackgroundColor: lossMode ? '#ef4444' : function(ctx) { return ctx.raw >= 0 ? '#16a34a' : '#dc2626'; }
+    tension: 0.3, pointRadius: 3, hoverPointRadius: 7, hoverBorderWidth: 4,
+    pointBackgroundColor: lossMode ? '#ef4444' : function(ctx) {
+      if (ctx.dataset.hovered === false) return 'rgba(200,200,200,0.2)';
+      return ctx.raw >= 0 ? '#16a34a' : '#dc2626';
+    },
+    pointBorderColor: lossMode ? '#ef4444' : function(ctx) {
+      if (ctx.dataset.hovered === false) return 'rgba(200,200,200,0.2)';
+      return ctx.raw >= 0 ? '#16a34a' : '#dc2626';
+    }
   }));
   chartInstance2 = new Chart(document.getElementById('line-chart'), {
     type: 'line',
     data: { labels: dateLabels, datasets: lineDatasets },
-    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } }, tooltip: { mode: 'nearest', intersect: true, callbacks: { label: function(ctx) { const val = ctx.raw; return ctx.dataset.label + ': ' + (lossMode ? val : (val >= 0 ? '+' : '') + val); } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: function(v) { return lossMode ? v : (v >= 0 ? '+' : '') + v; } } }, x: { ticks: { font: { size: 10 } } } } }
+    options: { responsive: true, maintainAspectRatio: true,
+      onHover: function(e) {
+        const chart = this;
+        const el = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+        chart.data.datasets.forEach((ds, i) => {
+          if (el.length > 0 && el[0].datasetIndex === i) {
+            ds.hovered = true;
+          } else if (el.length > 0) {
+            ds.hovered = false;
+          } else {
+            delete ds.hovered;
+          }
+        });
+        chart.update();
+      },
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 9 } } }, tooltip: { mode: 'nearest', intersect: true, callbacks: { label: function(ctx) { const val = ctx.raw; return ctx.dataset.label + ': ' + (lossMode ? val : (val >= 0 ? '+' : '') + val); } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: function(v) { return lossMode ? v : (v >= 0 ? '+' : '') + v; } } }, x: { ticks: { font: { size: 10 } } } } }
   });
 
   // Update chart titles
@@ -584,13 +640,58 @@ function renderProducts() {
   if (!data) return;
   const tbody = document.getElementById('prod-tbody');
   tbody.innerHTML = data.products.map((p, i) => `<tr draggable="true"
-    data-id="${p.id}" ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)" style="cursor:default">
+    data-id="${p.id}"
+    ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)"
+    ontouchstart="onTouchStart(event)" ontouchmove="onTouchMove(event)" ontouchend="onTouchEnd(event)"
+    style="cursor:default;touch-action:manipulation;user-select:none;-webkit-user-select:none">
     <td style="color:var(--text-secondary);font-size:11px;cursor:grab;width:30px" class="drag-handle">&#x2630;</td>
     <td><strong>${p.name}</strong></td>
     <td><select onchange="changeCat(${p.id}, this.value)" style="padding:4px 6px;font-size:12px;width:110px">${optionList(categories(), p.category)}</select></td>
     <td><select onchange="changeUnit(${p.id}, this.value)" style="padding:4px 6px;font-size:12px;width:70px">${optionList(['g','pcs'], p.unit)}</select></td>
     <td><button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">Remove</button></td>
   </tr>`).join('');
+}
+
+let touchSrcId = null;
+function onTouchStart(e) {
+  const tr = e.target.closest('tr');
+  if (!tr || !tr.dataset.id) return;
+  e.preventDefault();
+  touchSrcId = tr.dataset.id;
+  tr.classList.add('dragging');
+}
+function onTouchMove(e) {
+  e.preventDefault();
+  const touch = e.touches[0];
+  document.querySelectorAll('#prod-tbody tr').forEach(tr => tr.classList.remove('drag-over-above', 'drag-over-below'));
+  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (!target) return;
+  const tr = target.closest('#prod-tbody tr');
+  if (!tr || tr.dataset.id === touchSrcId) return;
+  const rect = tr.getBoundingClientRect();
+  tr.classList.add(touch.clientY < rect.top + rect.height / 2 ? 'drag-over-above' : 'drag-over-below');
+}
+function onTouchEnd(e) {
+  const touch = e.changedTouches[0];
+  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  document.querySelectorAll('#prod-tbody tr').forEach(tr => tr.classList.remove('dragging', 'drag-over-above', 'drag-over-below'));
+  if (!target || !touchSrcId) { touchSrcId = null; return; }
+  const targetTr = target.closest('#prod-tbody tr');
+  if (targetTr && targetTr.dataset.id !== touchSrcId) {
+    const targetId = targetTr.dataset.id;
+    let srcIdx = data.products.findIndex(p => p.id == touchSrcId);
+    let tgtIdx = data.products.findIndex(p => p.id == targetId);
+    if (srcIdx !== -1 && tgtIdx !== -1) {
+      const rect = targetTr.getBoundingClientRect();
+      const below = touch.clientY >= rect.top + rect.height / 2;
+      const [moved] = data.products.splice(srcIdx, 1);
+      if (srcIdx < tgtIdx) tgtIdx--;
+      data.products.splice(below ? tgtIdx + 1 : tgtIdx, 0, moved);
+      saveData();
+      renderProducts();
+    }
+  }
+  touchSrcId = null;
 }
 
 function onDragStart(e) { const tr=e.target.closest('tr'); dragSrcId=tr.dataset.id; e.dataTransfer.effectAllowed='move'; const name=tr.querySelector('td:nth-child(2)')?.textContent||'item'; const c=document.createElement('canvas'); c.width=200; c.height=28; const ctx=c.getContext('2d'); ctx.fillStyle='#6366f1'; ctx.beginPath(); ctx.roundRect(0,0,200,28,6); ctx.fill(); ctx.fillStyle='#fff'; ctx.font='14px -apple-system, sans-serif'; ctx.fillText(name,14,19); e.dataTransfer.setDragImage(c,14,14); requestAnimationFrame(()=>tr.classList.add('dragging')); }
@@ -613,6 +714,13 @@ function addProduct() {
 }
 
 function deleteProduct(id) { if(!confirm('Remove this product?')) return; data.products=data.products.filter(p=>p.id!==id); saveData(); renderCatSelect(); renderProducts(); renderDailyLog(); }
+
+// ---- Auto-save on refresh ----
+window.addEventListener('beforeunload', function() {
+  if (document.getElementById('page-log').classList.contains('active')) {
+    saveDailyLog(true);
+  }
+});
 
 // ---- Init ----
 document.getElementById('log-date').value = dateStr(new Date());
