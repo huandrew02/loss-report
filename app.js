@@ -452,33 +452,40 @@ function renderChart() {
   if (allDates.length === 0) { el.style.display = 'none'; return; }
   el.style.display = '';
 
-  // Per-item data across the week
+  // Per-item data across the week (raw + weighted for chart)
   const itemDaily = {};
+  const chartData = {};
   for (const date of allDates) {
     for (const pid in data.dailyLogs[date]) {
       const qty = data.dailyLogs[date][pid];
       if (!itemDaily[pid]) itemDaily[pid] = {};
       itemDaily[pid][date] = (itemDaily[pid][date] || 0) + qty;
+      if (!chartData[pid]) chartData[pid] = {};
+      const p = data.products.find(x => x.id == pid);
+      const weight = (p && p.unit === 'pcs') ? 100 : 1;
+      chartData[pid][date] = (chartData[pid][date] || 0) + qty * weight;
     }
   }
 
-  const sortedItems = Object.entries(itemDaily).map(([pid, days]) => {
+  const sortedItems = Object.entries(chartData).map(([pid, days]) => {
     const total = Object.values(days).reduce((s, v) => s + v, 0);
     const p = data.products.find(x => x.id == pid);
-    return { pid, name: p ? p.name : 'Unknown', total };
-  }).sort((a, b) => b.total - a.total);
+    return { pid, name: p ? p.name : 'Unknown', total, unit: p ? p.unit : 'g' };
+  }).sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
 
   const lossMode = isLossOnly();
   const dateLabels = allDates.map(d => { const dt = new Date(d + 'T12:00:00'); return dayLabels[dt.getDay()] + ' ' + d.slice(-2); });
 
   const barColors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4','#94a3b8','#8b5cf6','#14b8a6','#f97316','#e11d48','#84cc16'];
   const barDatasets = sortedItems.map((item, i) => {
+    const rawVals = allDates.map(d => itemDaily[item.pid][d] || 0);
     const bg = lossMode ? barColors[i % barColors.length] : function(ctx) { return ctx.raw >= 0 ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.8)'; };
     const border = lossMode ? barColors[i % barColors.length] : function(ctx) { return ctx.raw >= 0 ? '#16a34a' : '#dc2626'; };
     return {
-      label: item.name, data: allDates.map(d => itemDaily[item.pid][d] || 0),
+      label: item.name, data: allDates.map(d => chartData[item.pid][d] || 0),
       backgroundColor: bg, borderColor: border,
-      borderWidth: lossMode ? 0 : 1, borderRadius: 0, barThickness: 22
+      borderWidth: lossMode ? 0 : 1, borderRadius: 0, barThickness: 22,
+      _rawData: rawVals, _unit: item.unit
     };
   });
   const origBarBg = barDatasets.map(ds => ds.backgroundColor);
@@ -525,7 +532,17 @@ function renderChart() {
             chart.update();
           }
         },
-        tooltip: { mode: 'nearest', intersect: true, callbacks: { label: function(ctx) { const val = ctx.raw; return ctx.dataset.label + ': ' + (lossMode ? val : (val >= 0 ? '+' : '') + val); } } }
+        tooltip: {
+          mode: 'nearest', intersect: true,
+          callbacks: {
+            label: function(ctx) {
+              const raw = ctx.dataset._rawData ? ctx.dataset._rawData[ctx.dataIndex] : ctx.raw;
+              const unit = ctx.dataset._unit || '';
+              if (lossMode) return ctx.dataset.label + ': ' + raw + unit;
+              return ctx.dataset.label + ': ' + (raw >= 0 ? '+' : '') + raw + unit;
+            }
+          }
+        }
       },
       scales: { x: { stacked: true, ticks: { font: { size: 10 } } }, y: { stacked: true, beginAtZero: true, ticks: { font: { size: 10 }, callback: function(v) { return lossMode ? v : (v >= 0 ? '+' : '') + v; } } } }
     }
@@ -535,11 +552,12 @@ function renderChart() {
   const top6 = sortedItems.slice(0, 6);
   const lineColors = ['#6366f1','#ef4444','#22c55e','#f59e0b','#ec4899','#06b6d4'];
   const lineDatasets = top6.map((item, i) => ({
-    label: item.name, data: allDates.map(d => itemDaily[item.pid][d] || 0),
+    label: item.name, data: allDates.map(d => chartData[item.pid][d] || 0),
     borderColor: lineColors[i], backgroundColor: lineColors[i] + '22',
     borderWidth: 2, tension: 0.3,
     pointRadius: 3, pointBackgroundColor: lineColors[i],
-    pointBorderColor: '#fff', pointBorderWidth: 1
+    pointBorderColor: '#fff', pointBorderWidth: 1,
+    _rawData: allDates.map(d => itemDaily[item.pid][d] || 0), _unit: item.unit
   }));
   const origLineBorder = lineDatasets.map(ds => ds.borderColor);
   const origLineBg = lineDatasets.map(ds => ds.backgroundColor);
@@ -611,7 +629,7 @@ function renderChart() {
             chart.update();
           }
         },
-        tooltip: { mode: 'nearest', intersect: true, callbacks: { label: function(ctx) { const val = ctx.raw; return ctx.dataset.label + ': ' + (lossMode ? val : (val >= 0 ? '+' : '') + val); } } }
+        tooltip: { mode: 'nearest', intersect: true, callbacks: { label: function(ctx) { const raw = ctx.dataset._rawData ? ctx.dataset._rawData[ctx.dataIndex] : ctx.raw; const unit = ctx.dataset._unit || ''; if (lossMode) return ctx.dataset.label + ': ' + raw + unit; return ctx.dataset.label + ': ' + (raw >= 0 ? '+' : '') + raw + unit; } } }
       },
       scales: { y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: function(v) { return lossMode ? v : (v >= 0 ? '+' : '') + v; } } }, x: { ticks: { font: { size: 10 } } } }
     }
