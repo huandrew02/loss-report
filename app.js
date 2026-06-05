@@ -714,7 +714,7 @@ function renderProducts() {
     data-id="${p.id}"
     ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragend="onDragEnd(event)"
     ontouchstart="onTouchStart(event)" ontouchmove="onTouchMove(event)" ontouchend="onTouchEnd(event)"
-    style="cursor:default;touch-action:manipulation;user-select:none;-webkit-user-select:none">
+    style="cursor:default;user-select:none;-webkit-user-select:none">
     <td style="color:var(--text-secondary);font-size:11px;cursor:grab;width:30px" class="drag-handle">&#x2630;</td>
     <td><strong>${p.name}</strong></td>
     <td><select onchange="changeCat(${p.id}, this.value)" style="padding:4px 6px;font-size:12px;width:110px">${optionList(categories(), p.category)}</select></td>
@@ -725,6 +725,7 @@ function renderProducts() {
 
 let touchSrcId = null;
 function onTouchStart(e) {
+  if (!e.target.closest('.drag-handle')) return;
   const tr = e.target.closest('tr');
   if (!tr || !tr.dataset.id) return;
   e.preventDefault();
@@ -732,6 +733,7 @@ function onTouchStart(e) {
   tr.classList.add('dragging');
 }
 function onTouchMove(e) {
+  if (!touchSrcId) return;
   e.preventDefault();
   const touch = e.touches[0];
   document.querySelectorAll('#prod-tbody tr').forEach(tr => tr.classList.remove('drag-over-above', 'drag-over-below'));
@@ -743,10 +745,11 @@ function onTouchMove(e) {
   tr.classList.add(touch.clientY < rect.top + rect.height / 2 ? 'drag-over-above' : 'drag-over-below');
 }
 function onTouchEnd(e) {
+  if (!touchSrcId) { touchSrcId = null; return; }
   const touch = e.changedTouches[0];
   const target = document.elementFromPoint(touch.clientX, touch.clientY);
   document.querySelectorAll('#prod-tbody tr').forEach(tr => tr.classList.remove('dragging', 'drag-over-above', 'drag-over-below'));
-  if (!target || !touchSrcId) { touchSrcId = null; return; }
+  if (!target) { touchSrcId = null; return; }
   const targetTr = target.closest('#prod-tbody tr');
   if (targetTr && targetTr.dataset.id !== touchSrcId) {
     const targetId = targetTr.dataset.id;
